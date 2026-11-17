@@ -1,0 +1,7 @@
+numpy
+safetensors
+regex
+matplotlib
+# Owner-run only (reference export and PyTorch baseline):
+torch
+transformers
