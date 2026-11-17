@@ -1,0 +1,47 @@
+# HIP-on-NVIDIA dev image for hip-gpt2.
+# build: docker build -t hip-gpt2-nv -f docker/Dockerfile.nv docker
+FROM nvidia/cuda:12.6.3-devel-ubuntu24.04
+ARG ROCM_VER=6.4.3
+ARG HIP_CPU_COMMIT=e112c935057434897bb12d9ab3910380a8bd5f58
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      cmake ninja-build git g++ clang python3 python3-venv python3-pip \
+      libtbb-dev ca-certificates curl gnupg pkg-config gfortran \
+      cuda-nsight-compute-12-6 cuda-nsight-systems-12-6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# HIP for NVIDIA from the ROCm apt repo. Workaround: `apt install hip-runtime-nvidia hip-dev`
+# drags in the whole AMD stack (rocm-llvm, hsa, ...) and `cuda` -> CUDA 13.x, and hipcc/hipcc-nvidia
+# conflict. We only need headers + hipconfig + hipcc(nvcc wrapper) + cmake configs, so download
+# the five small debs and install them with dpkg --force-depends. (apt/dpkg state is intentionally
+# left "unmet deps"; do not run apt-get install afterwards.)
+RUN curl -fsSL https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor -o /etc/apt/keyrings/rocm.gpg \
+ && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/${ROCM_VER} noble main" > /etc/apt/sources.list.d/rocm.list \
+ && apt-get update && mkdir /tmp/rocm-debs && cd /tmp/rocm-debs \
+ && apt-get download rocm-core hip-dev hip-runtime-nvidia hipcc-nvidia hipblas-common-dev \
+ && dpkg -i --force-depends *.deb && cd / && rm -rf /tmp/rocm-debs /var/lib/apt/lists/* \
+ && ln -sfn /opt/rocm-${ROCM_VER} /opt/rocm
+
+
+ENV ROCM_PATH=/opt/rocm HIP_PLATFORM=nvidia HIP_COMPILER=nvcc HIP_RUNTIME=cuda \
+    CUDA_PATH=/usr/local/cuda \
+    PATH=/opt/rocm/bin:/usr/local/cuda/bin:${PATH} \
+    CMAKE_PREFIX_PATH=/opt/rocm \
+    LD_LIBRARY_PATH=/opt/rocm/lib
+
+# hipBLAS with the cuBLAS backend, from source (apt hipblas is the rocBLAS one).
+RUN git clone --depth 1 --branch rocm-${ROCM_VER} https://github.com/ROCm/hipBLAS.git /tmp/hipblas \
+ && cmake -S /tmp/hipblas -B /tmp/hipblas/b -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/opt/rocm -DCMAKE_PREFIX_PATH=/opt/rocm \
+      -DUSE_CUDA=ON -DBUILD_CLIENTS_TESTS=OFF -DBUILD_CLIENTS_BENCHMARKS=OFF \
+      -DBUILD_CLIENTS_SAMPLES=OFF -DBUILD_FORTRAN_CLIENTS=OFF -DBUILD_WITH_SOLVER=OFF \
+ && cmake --build /tmp/hipblas/b && cmake --install /tmp/hipblas/b \
+ && echo /opt/rocm/lib > /etc/ld.so.conf.d/rocm.conf && ldconfig \
+ && nm -D /opt/rocm/lib/libhipblas.so | grep -E " T hipblas(S|H)gemm$" \
+ && rm -rf /tmp/hipblas
+
+RUN git init -q /opt/HIP-CPU && git -C /opt/HIP-CPU remote add origin https://github.com/ROCm/HIP-CPU.git \
+ && git -C /opt/HIP-CPU fetch --depth 1 origin ${HIP_CPU_COMMIT} && git -C /opt/HIP-CPU checkout -q FETCH_HEAD
+
+WORKDIR /work
