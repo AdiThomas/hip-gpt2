@@ -1,4 +1,6 @@
-build/
+build*/
 *.o
 .vscode/
 .cache/
+models/
+__pycache__/

@@ -1,51 +1,230 @@
-cmake_minimum_required(VERSION 3.28)  # 3.28+ needed for HIP on NVIDIA
+cmake_minimum_required(VERSION 3.21)  # NVIDIA HIP builds need CMake >= 3.28
 
-# Pick the backend at configure time:
-#   NVIDIA (RTX 4060):  -DCMAKE_HIP_PLATFORM=nvidia -DCMAKE_HIP_ARCHITECTURES=89
-#   AMD MI300X:         -DCMAKE_HIP_ARCHITECTURES=gfx942
-#   AMD RX 7900 XT/XTX: -DCMAKE_HIP_ARCHITECTURES=gfx1100
-#   AMD RX 9070 / XT:   -DCMAKE_HIP_ARCHITECTURES=gfx1201
-project(hip_gemm LANGUAGES CXX HIP)
+# ---------------------------------------------------------------------------
+# Backend selection (SPEC 3.1)
+#   CPU (HIP-CPU, no GPU needed):  -DGEMM_BACKEND=cpu -DHIP_CPU_DIR=/path/to/HIP-CPU
+#   NVIDIA (RTX 4060):             -DCMAKE_HIP_PLATFORM=nvidia -DCMAKE_HIP_ARCHITECTURES=89
+#   AMD MI300X:                    -DCMAKE_HIP_ARCHITECTURES=gfx942
+#   AMD RX 7900 (experimental MC): -DCMAKE_HIP_ARCHITECTURES=gfx1100 -DHIPGPT2_ENABLE_RDNA3_WMMA=ON
+# ---------------------------------------------------------------------------
+set(GEMM_BACKEND "gpu" CACHE STRING "gpu (ROCm / HIP-on-NVIDIA) or cpu (HIP-CPU)")
+set_property(CACHE GEMM_BACKEND PROPERTY STRINGS gpu cpu)
+set(HIP_CPU_DIR "" CACHE PATH "HIP-CPU checkout (required when GEMM_BACKEND=cpu)")
+option(HIPGPT2_BUILD_GEMM "Build the GEMM ladder" ON)
+option(HIPGPT2_BUILD_IO "Build tokenizer / safetensors / config" ON)
+option(HIPGPT2_BUILD_LLM "Build the GPT-2 engine" ON)
+set(HIPGPT2_LLM_GEMM "ladder" CACHE STRING "ladder: engine uses gemm_fp32_best; internal: engine's own fallback GEMM")
+set(HIPGPT2_ENABLE_HIPBLAS "AUTO" CACHE STRING "AUTO, ON or OFF")
+option(HIPGPT2_ENABLE_RDNA3_WMMA "Enable the experimental gfx11 WMMA path for v5" OFF)
+option(GEMM_USE_OPENMP "Parallelize the CPU reference check" ON)
+
+if(POLICY CMP0119)
+  cmake_policy(SET CMP0119 NEW)  # LANGUAGE source property => compile as that language (-x c++)
+endif()
+
+project(hip_gpt2 LANGUAGES CXX)
+
+if(GEMM_BACKEND STREQUAL "gpu")
+  enable_language(HIP)
+  set(CMAKE_HIP_STANDARD 17)
+  set(CMAKE_HIP_STANDARD_REQUIRED ON)
+elseif(GEMM_BACKEND STREQUAL "cpu")
+  if(NOT HIP_CPU_DIR OR NOT EXISTS "${HIP_CPU_DIR}/include/hip/hip_runtime.h")
+    message(FATAL_ERROR "GEMM_BACKEND=cpu needs -DHIP_CPU_DIR=<HIP-CPU checkout> (git clone https://github.com/ROCm/HIP-CPU)")
+  endif()
+  find_package(Threads REQUIRED)
+  find_package(TBB QUIET)
+else()
+  message(FATAL_ERROR "GEMM_BACKEND must be gpu or cpu")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_HIP_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-option(GEMM_USE_OPENMP "Parallelize the CPU reference check" ON)
+# --- git sha + matrix-core path (global definitions, SPEC 3.1) ----------------
+execute_process(COMMAND git rev-parse --short HEAD
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE HIPGPT2_SHA OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(NOT HIPGPT2_SHA)
+  set(HIPGPT2_SHA "unknown")
+endif()
+add_compile_definitions(HIPGPT2_GIT_SHA="${HIPGPT2_SHA}")
 
-# CPU reference / checker: plain C++, no HIP.
+set(HIPGPT2_MC "NONE")
+if(GEMM_BACKEND STREQUAL "gpu")
+  if(CMAKE_HIP_PLATFORM STREQUAL "nvidia")
+    set(HIPGPT2_MC "WMMA_NVIDIA")
+  else()
+    list(GET CMAKE_HIP_ARCHITECTURES 0 _arch0)
+    if(_arch0 MATCHES "^gfx9(08|0a|4[0-2])")
+      set(HIPGPT2_MC "MFMA")
+    elseif(_arch0 MATCHES "^gfx11" AND HIPGPT2_ENABLE_RDNA3_WMMA)
+      set(HIPGPT2_MC "WMMA_RDNA3")
+    endif()
+  endif()
+endif()
+add_compile_definitions(HIPGPT2_MC_${HIPGPT2_MC}=1)
+message(STATUS "hip-gpt2: backend=${GEMM_BACKEND} matrix-core=${HIPGPT2_MC} sha=${HIPGPT2_SHA}")
+
+# --- helpers ---------------------------------------------------------------
+# Every target gets include/; on the CPU backend, .hip files compile as C++ against HIP-CPU.
+function(hipgpt2_setup_target tgt)
+  target_include_directories(${tgt} PRIVATE ${CMAKE_SOURCE_DIR}/include)
+  if(GEMM_BACKEND STREQUAL "cpu")
+    target_include_directories(${tgt} SYSTEM PRIVATE ${HIP_CPU_DIR}/include)
+    if(TBB_FOUND)
+      target_link_libraries(${tgt} PRIVATE TBB::tbb)
+    else()
+      target_link_libraries(${tgt} PRIVATE tbb)
+    endif()
+    target_link_libraries(${tgt} PRIVATE Threads::Threads)
+  endif()
+endfunction()
+
+function(hipgpt2_mark_hip_sources)
+  if(GEMM_BACKEND STREQUAL "cpu")
+    foreach(src ${ARGN})
+      if(src MATCHES "\\.hip$")
+        set_source_files_properties(${src} PROPERTIES LANGUAGE CXX)
+      endif()
+    endforeach()
+  endif()
+endfunction()
+
+enable_testing()
+find_package(Python3 COMPONENTS Interpreter QUIET)
+
+function(hipgpt2_add_test name)
+  add_test(NAME ${name} COMMAND ${ARGN})
+  set_tests_properties(${name} PROPERTIES WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+endfunction()
+
+# --- reference checker (pure C++) -------------------------------------------
 add_library(reference STATIC src/reference.cpp)
-target_include_directories(reference PUBLIC include)
+target_include_directories(reference PUBLIC ${CMAKE_SOURCE_DIR}/include)
 if(GEMM_USE_OPENMP)
   find_package(OpenMP)
   if(OpenMP_CXX_FOUND)
-    # PRIVATE so -fopenmp doesn't leak into HIP compiles (nvcc rejects it).
-    target_link_libraries(reference PRIVATE OpenMP::OpenMP_CXX)
+    target_link_libraries(reference PRIVATE OpenMP::OpenMP_CXX)  # PRIVATE: keep -fopenmp out of HIP compiles
   endif()
 endif()
 
-# Every file in src/kernels/ is picked up automatically.
-file(GLOB KERNEL_SOURCES CONFIGURE_DEPENDS src/kernels/*.hip)
-add_executable(gemm_bench src/bench.hip ${KERNEL_SOURCES})
-target_include_directories(gemm_bench PRIVATE include)
-target_link_libraries(gemm_bench PRIVATE reference)
-
-# Stamp results with the commit they came from (matters once CI tracks regressions).
-execute_process(COMMAND git rev-parse --short HEAD
-                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                OUTPUT_VARIABLE GIT_SHA OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-if(GIT_SHA)
-  target_compile_definitions(gemm_bench PRIVATE GEMM_GIT_SHA="${GIT_SHA}")
+if(EXISTS ${CMAKE_SOURCE_DIR}/tests/test_reference.cpp)
+  add_executable(test_reference tests/test_reference.cpp)
+  target_link_libraries(test_reference PRIVATE reference)
+  hipgpt2_add_test(reference_checker test_reference)
 endif()
 
-# Host-only unit test of the checker itself (runs without a GPU).
-add_executable(test_reference tests/test_reference.cpp)
-target_link_libraries(test_reference PRIVATE reference)
+# --- GEMM ladder -------------------------------------------------------------
+file(GLOB GEMM_KERNEL_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/kernels/*.hip)
+set(HIPGPT2_HAVE_GEMM OFF)
+if(HIPGPT2_BUILD_GEMM AND GEMM_KERNEL_SOURCES AND EXISTS ${CMAKE_SOURCE_DIR}/src/kernels/registry.hip)
+  set(HIPGPT2_HAVE_GEMM ON)
+  hipgpt2_mark_hip_sources(${GEMM_KERNEL_SOURCES} ${CMAKE_SOURCE_DIR}/src/bench.hip)
+  add_library(gemm_kernels STATIC ${GEMM_KERNEL_SOURCES})
+  hipgpt2_setup_target(gemm_kernels)
+  target_include_directories(gemm_kernels PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
-enable_testing()
-add_test(NAME reference_checker COMMAND test_reference)
-foreach(k v0)  # add v1 v2 ... as you write them
-  add_test(NAME correctness_${k} COMMAND gemm_bench --kernel ${k} --test)
-endforeach()
+  if(GEMM_BACKEND STREQUAL "gpu" AND NOT HIPGPT2_ENABLE_HIPBLAS STREQUAL "OFF")
+    find_package(hipblas QUIET)
+    if(hipblas_FOUND)
+      target_link_libraries(gemm_kernels PUBLIC roc::hipblas)
+      target_compile_definitions(gemm_kernels PRIVATE HIPGPT2_HAVE_HIPBLAS=1)
+      message(STATUS "hip-gpt2: hipBLAS baseline enabled")
+    elseif(HIPGPT2_ENABLE_HIPBLAS STREQUAL "ON")
+      message(FATAL_ERROR "HIPGPT2_ENABLE_HIPBLAS=ON but hipBLAS was not found")
+    endif()
+  endif()
+
+  add_executable(gemm_bench ${CMAKE_SOURCE_DIR}/src/bench.hip)
+  hipgpt2_setup_target(gemm_bench)
+  target_link_libraries(gemm_bench PRIVATE gemm_kernels reference)
+  hipgpt2_add_test(gemm_correctness gemm_bench --kernel all --test)
+else()
+  message(STATUS "hip-gpt2: GEMM ladder skipped (switched off or src/kernels/registry.hip missing)")
+endif()
+
+# --- IO: safetensors, tokenizer, config (pure C++) ---------------------------
+file(GLOB IO_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/io/*.cpp)
+set(HIPGPT2_HAVE_IO OFF)
+if(HIPGPT2_BUILD_IO AND IO_SOURCES)
+  set(HIPGPT2_HAVE_IO ON)
+  add_library(llm_io STATIC ${IO_SOURCES})
+  target_include_directories(llm_io PUBLIC ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/io)
+  foreach(t tokenizer safetensors)
+    if(EXISTS ${CMAKE_SOURCE_DIR}/tests/test_${t}.cpp)
+      add_executable(test_${t} tests/test_${t}.cpp)
+      target_link_libraries(test_${t} PRIVATE llm_io)
+    endif()
+  endforeach()
+  if(TARGET test_tokenizer)
+    hipgpt2_add_test(tokenizer test_tokenizer assets/gpt2 tests/data/tokenizer_cases.txt)
+  endif()
+  if(TARGET test_safetensors)
+    hipgpt2_add_test(safetensors test_safetensors tests/data/tiny)
+  endif()
+else()
+  message(STATUS "hip-gpt2: IO library skipped")
+endif()
+
+# --- LLM kernels + engine ----------------------------------------------------
+file(GLOB LLM_KERNEL_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/llm/kernels/*.hip)
+if(HIPGPT2_BUILD_LLM AND LLM_KERNEL_SOURCES)
+  hipgpt2_mark_hip_sources(${LLM_KERNEL_SOURCES})
+  add_library(llm_kernels STATIC ${LLM_KERNEL_SOURCES})
+  hipgpt2_setup_target(llm_kernels)
+  target_include_directories(llm_kernels PUBLIC ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/llm)
+
+  if(EXISTS ${CMAKE_SOURCE_DIR}/tests/test_llm_kernels.hip)
+    hipgpt2_mark_hip_sources(${CMAKE_SOURCE_DIR}/tests/test_llm_kernels.hip)
+    add_executable(test_llm_kernels tests/test_llm_kernels.hip)
+    hipgpt2_setup_target(test_llm_kernels)
+    target_link_libraries(test_llm_kernels PRIVATE llm_kernels)
+    hipgpt2_add_test(llm_kernels test_llm_kernels)
+  endif()
+
+  file(GLOB LLM_ENGINE_HIP CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/llm/*.hip)
+  file(GLOB LLM_ENGINE_CPP CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/llm/*.cpp)
+  list(FILTER LLM_ENGINE_HIP EXCLUDE REGEX "/main\\.hip$")
+  if(HIPGPT2_HAVE_IO AND (LLM_ENGINE_HIP OR LLM_ENGINE_CPP))
+    hipgpt2_mark_hip_sources(${LLM_ENGINE_HIP})
+    add_library(llm_engine STATIC ${LLM_ENGINE_HIP} ${LLM_ENGINE_CPP})
+    hipgpt2_setup_target(llm_engine)
+    target_include_directories(llm_engine PUBLIC ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/llm)
+    target_link_libraries(llm_engine PUBLIC llm_kernels llm_io)
+    if(HIPGPT2_LLM_GEMM STREQUAL "ladder" AND HIPGPT2_HAVE_GEMM)
+      target_link_libraries(llm_engine PUBLIC gemm_kernels)
+      target_compile_definitions(llm_engine PUBLIC HIPGPT2_LLM_USE_LADDER_GEMM=1)
+      message(STATUS "hip-gpt2: engine uses the GEMM ladder (gemm_fp32_best)")
+    else()
+      message(STATUS "hip-gpt2: engine uses its internal fallback GEMM")
+    endif()
+
+    if(EXISTS ${CMAKE_SOURCE_DIR}/src/llm/main.hip)
+      hipgpt2_mark_hip_sources(${CMAKE_SOURCE_DIR}/src/llm/main.hip)
+      add_executable(gpt2 src/llm/main.hip)
+      hipgpt2_setup_target(gpt2)
+      target_link_libraries(gpt2 PRIVATE llm_engine)
+      hipgpt2_add_test(llm_cli_smoke gpt2 --model tests/data/tiny --tokens 5,17,42 --max-new-tokens 4 --quiet)
+    endif()
+    if(EXISTS ${CMAKE_SOURCE_DIR}/tests/test_llm_e2e.hip)
+      hipgpt2_mark_hip_sources(${CMAKE_SOURCE_DIR}/tests/test_llm_e2e.hip)
+      add_executable(test_llm_e2e tests/test_llm_e2e.hip)
+      hipgpt2_setup_target(test_llm_e2e)
+      target_link_libraries(test_llm_e2e PRIVATE llm_engine)
+      hipgpt2_add_test(llm_tiny_e2e test_llm_e2e tests/data/tiny)
+    endif()
+  else()
+    message(STATUS "hip-gpt2: LLM engine skipped (needs IO library and src/llm sources)")
+  endif()
+else()
+  message(STATUS "hip-gpt2: LLM kernels skipped")
+endif()
+
+# --- script self-tests -------------------------------------------------------
+if(Python3_Interpreter_FOUND AND EXISTS ${CMAKE_SOURCE_DIR}/scripts/check_regression.py)
+  hipgpt2_add_test(scripts_selftest ${Python3_EXECUTABLE} scripts/check_regression.py --self-test)
+endif()
