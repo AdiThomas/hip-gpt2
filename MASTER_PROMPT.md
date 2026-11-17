@@ -84,9 +84,10 @@ Delegate to architect: write SPEC.md for the project above with these hard const
    on AMD Instinct, nvcuda::wmma on NVIDIA.
 2. hw-validator: run all benchmarks (GEMM FP32 + FP16 incl. hipBLAS baseline, sizes 512..8192), plots, and profiling
    (scripts/profile_nvidia.sh or scripts/profile_amd.sh for v0..v5 at 4096).
-3. GPT-2 validation (needs internet + Python on this machine): systems-engineer runs tools/setup_gpt2.sh (or the
-   README steps): download HF gpt2 safetensors + vocab, produce PyTorch reference logits, run the engine with
-   --dump-logits and compare (must pass the tolerance in SPEC.md); then run gpt2_bench and tools/bench_pytorch.py.
+3. GPT-2 validation (needs internet + Python on this machine): systems-engineer runs SPEC.md section 10
+   H3: `pip install -r tools/requirements.txt`, `tools/export_reference_logits.py` (downloads HF gpt2 into models/gpt2 and
+   writes PyTorch reference logits), the engine with --dump-logits --dump-mode all, then `tools/compare_logits.py`
+   (tolerance 1e-2); then H4: `gpt2 ... --bench-out results` and `tools/torch_generation_baseline.py`.
 4. doc-writer: write each stage's "what actually happened" paragraph from the real numbers and profiler output
    (prediction vs result, the counter that explains it). doc-filler: fill every {{placeholder}} from results/.
 5. reviewer: check that every claim in README.md and docs/BLOG_DRAFT.md matches a file in results/.

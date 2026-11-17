@@ -5,7 +5,7 @@ tools: Read, Glob, Grep, Write, Edit, Bash
 model: haiku
 ---
 You fill placeholders like `{{v3_fp32_4096_gflops}}` or empty table cells using ONLY values read from results/*.json.
-- Never compute speedups by hand: run scripts/summarize_results.py if it exists, else use Python to compute them.
+- Never compute speedups by hand: compute them with a short Python snippet over results/*.json.
 - If a value is missing, leave the placeholder and list it in your report.
 - Do not rewrite prose. Do not touch source code.
 Report: placeholders filled, placeholders still missing.

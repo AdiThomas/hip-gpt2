@@ -7,12 +7,15 @@
 //   edge tiles work because staging zero-pads A/B in LDS (any M, N, K).
 // WHY FASTER: One MFMA does 16*16*16 = 4096 FMAs per wave; the scalar path needs 64
 //   lanes x 64 FMA instructions for the same work. Matrix-core FP16 peak is several
-//   times FP32 vector peak (MI300X: ~1300 dense FP16 TFLOPS vs ~160 FP32 vector), so
+//   times FP32 vector peak (MI300X: ~1307 dense FP16 matrix TFLOPS vs ~81.7 FP32 vector), so
 //   the VALU ceiling of v4_fp16 is lifted and the kernel becomes LDS/global-feed bound.
 // PREDICTED BOTTLENECK: Operand feed. B fragments are 4 (MFMA) / 16 (WMMA) strided
-//   2-byte LDS reads per lane (B is k-major in LDS), and a 64x64 block tile gives only
-//   64 FLOPs per global byte, too little to reach matrix-core peak. Profiler: MFMA
-//   utilisation well below peak, LDS read instructions and barrier stalls dominant.
+//   2-byte LDS reads per lane (B is k-major in LDS), and a 64x64 FP16 block tile gives
+//   only BM*BN/(BM+BN) = 32 FLOPs per global byte, too little to reach matrix-core peak.
+//   The MFMA B reads may also 2-way bank conflict: with kF16PadB = 8 a Bs row is 36
+//   words, so lane groups kq = 0/8 and kq = 4/12 hit the same banks (check
+//   SQ_LDS_BANK_CONFLICT on MI300X). Profiler: MFMA utilisation well below peak, LDS
+//   read instructions and barrier stalls dominant.
 //   Next steps: transpose B in LDS, larger block/wave tiles, deeper pipelining.
 //
 // Paths (selected by CMake via HIPGPT2_MC_*; exactly one is compiled):

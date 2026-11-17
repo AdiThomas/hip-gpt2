@@ -24,6 +24,12 @@
 
 #pragma once
 
+// v5_matrix_core.hip derives wave/lane from kV5WaveSize; it must equal the compiled
+// wavefront size (__AMDGCN_WAVEFRONT_SIZE is defined only in the device pass).
+#if defined(__AMDGCN_WAVEFRONT_SIZE) && __AMDGCN_WAVEFRONT_SIZE != 64
+#error "v5 MFMA path requires wave64 (CDNA default); do not build with -mwavefrontsize32"
+#endif
+
 constexpr int kV5WaveSize = 64;                    // CDNA wavefront
 constexpr int kV5Waves = 4;
 constexpr int kV5Threads = kV5Waves * kV5WaveSize; // 256: same as v4_fp16, 1 staging chunk per thread

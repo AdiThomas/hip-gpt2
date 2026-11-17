@@ -22,6 +22,12 @@
 
 #pragma once
 
+// v5_matrix_core.hip derives wave/lane from kV5WaveSize; it must equal the compiled
+// wavefront size (__AMDGCN_WAVEFRONT_SIZE is defined only in the device pass).
+#if defined(__AMDGCN_WAVEFRONT_SIZE) && __AMDGCN_WAVEFRONT_SIZE != 32
+#error "v5 RDNA3 WMMA path requires wave32; build gfx11 without -mwavefrontsize64"
+#endif
+
 constexpr int kV5WaveSize = 32;                    // gfx11 wave32 mode (the default)
 constexpr int kV5Waves = 4;
 constexpr int kV5Threads = kV5Waves * kV5WaveSize; // 128 -> 2 staging chunks per operand per thread

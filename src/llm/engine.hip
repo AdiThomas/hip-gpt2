@@ -164,8 +164,13 @@ double Gpt2Engine::prefill(const int* tokens, int T, float* logits_last, float* 
         HIPGPT2_REQUIRE(tokens[t] >= 0 && tokens[t] < V, "prefill: token id out of range");
         tok_host_[t] = tokens[t];
     }
-    const auto t0 = Clock::now();
     HIP_CHECK(hipMemcpyAsync(tok_dev_, tok_host_.data(), T * sizeof(int), hipMemcpyHostToDevice, stream_));
+    // prefill_ms = device time of the forward pass + LM head only (events bracket the kernels;
+    // the token upload above and the logits download below are excluded).
+    hipEvent_t ev_start, ev_stop;
+    HIP_CHECK(hipEventCreate(&ev_start));
+    HIP_CHECK(hipEventCreate(&ev_stop));
+    HIP_CHECK(hipEventRecord(ev_start, stream_));
     forward_rows(T, /*decode_path=*/false, /*fused_attn=*/false);
     // LM head only on the rows that are needed (tied embedding, y = wte . xf).
     float* all_dev = nullptr;
@@ -179,8 +184,13 @@ double Gpt2Engine::prefill(const int* tokens, int T, float* logits_last, float* 
     }
     if (logits_last)
         launch_gemv_rowdot(wte_, a_ + static_cast<size_t>(T - 1) * d, logits_, V, d, 1, stream_);
-    HIP_CHECK(hipStreamSynchronize(stream_));
-    const double device_ms = ms_since(t0);
+    HIP_CHECK(hipEventRecord(ev_stop, stream_));
+    HIP_CHECK(hipEventSynchronize(ev_stop));
+    float ev_ms = 0.f;
+    HIP_CHECK(hipEventElapsedTime(&ev_ms, ev_start, ev_stop));
+    HIP_CHECK(hipEventDestroy(ev_start));
+    HIP_CHECK(hipEventDestroy(ev_stop));
+    const double device_ms = ev_ms;
     if (logits_last) {
         HIP_CHECK(hipMemcpyAsync(logits_last, logits_, V * sizeof(float), hipMemcpyDeviceToHost, stream_));
     }
@@ -240,9 +250,12 @@ GenerateResult Gpt2Engine::generate(const std::vector<int>& prompt, const Genera
     emit(first);
 
     // Decode: one row per step through the GEMV path, attending to the cache.
-    const auto t1 = Clock::now();
+    // Timed per step: decode compute + logits D2H copy + sampling. Streaming output (on_token)
+    // and keep_logits bookkeeping run outside the timed region (SPEC 6.4).
+    double decode_s = 0.0;
     int produced = 1;
     while (produced < G && !(opt.stop_at_eot && res.tokens.back() == kEndOfTextId)) {
+        const auto ts = Clock::now();
         if (opt.use_kv_cache) {
             decode(res.tokens.back(), opt.fused_attn, logits.data());
         } else {
@@ -250,10 +263,12 @@ GenerateResult Gpt2Engine::generate(const std::vector<int>& prompt, const Genera
             reset();
             prefill(seq.data(), static_cast<int>(seq.size()), logits.data());
         }
-        emit(sampler.sample(logits.data(), V));
+        const int tok = sampler.sample(logits.data(), V);
+        decode_s += std::chrono::duration<double>(Clock::now() - ts).count();
+        emit(tok);
         ++produced;
     }
-    res.decode_seconds = std::chrono::duration<double>(Clock::now() - t1).count();
+    res.decode_seconds = decode_s;
     const int gen = static_cast<int>(res.tokens.size());
     res.decode_tok_per_s = (gen >= 2 && res.decode_seconds > 0) ? (gen - 1) / res.decode_seconds : 0.0;
     return res;
