@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hip-gpt2 performance history</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e;
+    --muted: #898781; --grid: #e1e0d9; --border: rgba(11,11,11,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7;
+      --muted: #898781; --grid: #2c2c2a; --border: rgba(255,255,255,0.10);
+    }
+  }
+  body { margin: 0; padding: 24px; background: var(--page); color: var(--ink);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 32px 0 4px; }
+  p.sub { margin: 0 0 12px; color: var(--ink2); font-size: 13px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+          padding: 12px 16px 16px; margin: 12px 0; }
+  .card h3 { font-size: 14px; margin: 0 0 8px; font-weight: 600; }
+  .chart { position: relative; height: 320px; }
+  #status { color: var(--ink2); }
+</style>
+</head>
+<body>
+<main>
+  <h1>hip-gpt2 performance history</h1>
+  <p class="sub">GEMM throughput per kernel and LLM latency per commit, from the self-hosted GPU runner.
+    Data: <a href="data/history.json">data/history.json</a></p>
+  <p id="status">Loading history...</p>
+  <div id="devices"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="chart.js"></script>
+</body>
+</html>

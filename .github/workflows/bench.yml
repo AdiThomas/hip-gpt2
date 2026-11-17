@@ -1,0 +1,100 @@
+name: bench
+
+# Runs on the self-hosted GPU runner. Repository settings the owner must provide:
+#   Runner labels:        self-hosted, gpu
+#   Variables (Settings > Secrets and variables > Actions > Variables):
+#     HIP_CMAKE_FLAGS     cmake flags for the GPU build, e.g.
+#                         "-DCMAKE_HIP_ARCHITECTURES=gfx942 -DCMAKE_PREFIX_PATH=/opt/rocm"
+#     GPT2_MODEL_DIR      (optional) absolute path of the GPT-2 model directory on the runner
+#     PERF_THRESHOLD_PCT  (optional) regression threshold in percent, default 7
+#   Pages: Settings > Pages > Deploy from branch "gh-pages" (root). The branch is created
+#          by the first run.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write   # push the gh-pages branch
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bench:
+    runs-on: [self-hosted, gpu]
+    env:
+      HIP_CMAKE_FLAGS: ${{ vars.HIP_CMAKE_FLAGS }}
+      GPT2_MODEL_DIR: ${{ vars.GPT2_MODEL_DIR }}
+      PERF_THRESHOLD_PCT: ${{ vars.PERF_THRESHOLD_PCT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        # HIP_CMAKE_FLAGS is intentionally word-split into separate cmake arguments.
+        run: cmake -S . -B build $HIP_CMAKE_FLAGS
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Run benchmarks
+        id: bench
+        run: |
+          rm -rf results
+          mkdir -p results
+          BUILD_DIR=build RESULTS_DIR=results bash scripts/run_benchmarks.sh
+
+      - name: Regression check
+        id: regress
+        continue-on-error: true
+        run: python3 scripts/check_regression.py --baseline perf/baselines --results results
+
+      # History is published even when the regression check failed.
+      - name: Update history and publish site to gh-pages
+        if: ${{ !cancelled() && steps.bench.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo_url="https://github.com/${GITHUB_REPOSITORY}.git"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          echo "::add-mask::$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          rm -rf gh-pages
+          if git -c "http.extraheader=$auth" clone --quiet --branch gh-pages --single-branch "$repo_url" gh-pages; then
+            :
+          else
+            mkdir gh-pages
+            git -C gh-pages init -q -b gh-pages
+            git -C gh-pages remote add origin "$repo_url"
+          fi
+          python3 scripts/update_history.py --results results --history gh-pages/data/history.json
+          cp site/index.html site/chart.js gh-pages/
+          touch gh-pages/.nojekyll
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "gh-pages unchanged"
+          else
+            git commit -q -m "bench: ${GITHUB_SHA::7} on $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git -c "http.extraheader=$auth" push origin HEAD:gh-pages
+          fi
+
+      - name: Upload results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results-${{ github.sha }}
+          path: results/
+          if-no-files-found: ignore
+
+      - name: Fail job on regression
+        if: ${{ steps.regress.outcome == 'failure' }}
+        run: |
+          echo "Performance regression detected; see the 'Regression check' step."
+          exit 1

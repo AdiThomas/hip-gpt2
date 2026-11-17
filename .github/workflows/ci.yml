@@ -1,0 +1,75 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned HIP-CPU commit (same one the reference build uses).
+  HIP_CPU_COMMIT: e112c935057434897bb12d9ab3910380a8bd5f58
+
+jobs:
+  cpu-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libtbb-dev python3-numpy
+
+      - name: Fetch HIP-CPU at the pinned commit
+        run: |
+          mkdir -p "$RUNNER_TEMP/HIP-CPU"
+          git -C "$RUNNER_TEMP/HIP-CPU" init -q
+          git -C "$RUNNER_TEMP/HIP-CPU" remote add origin https://github.com/ROCm/HIP-CPU.git
+          git -C "$RUNNER_TEMP/HIP-CPU" fetch --depth 1 origin "$HIP_CPU_COMMIT"
+          git -C "$RUNNER_TEMP/HIP-CPU" checkout -q FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/HIP-CPU" rev-parse HEAD)" = "$HIP_CPU_COMMIT"
+
+      - name: Configure
+        run: cmake -S . -B build -DGEMM_BACKEND=cpu -DHIP_CPU_DIR="$RUNNER_TEMP/HIP-CPU"
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Script self-tests
+        run: |
+          python3 scripts/make_exercises.py --self-test
+          bash -n scripts/*.sh
+
+  rocm-compile:
+    # Compile-only check of the HIP/MFMA paths for gfx942 (no GPU on hosted runners).
+    # Informational: failures do not fail the workflow.
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    container:
+      # OWNER: confirm this tag exists on Docker Hub (rocm/dev-ubuntu-24.04) and bump
+      # the ROCm version as needed. The image is large; if the hosted runner runs out of
+      # disk, use a larger runner or a slimmer tag.
+      image: rocm/dev-ubuntu-24.04:6.4.1
+    steps:
+      # git must exist before actions/checkout, cmake before configure.
+      - name: Install tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git cmake ninja-build ca-certificates
+
+      - uses: actions/checkout@v4
+
+      - name: Configure (gfx942)
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_HIP_ARCHITECTURES=gfx942 \
+            -DCMAKE_PREFIX_PATH=/opt/rocm \
+            -DCMAKE_HIP_COMPILER=/opt/rocm/llvm/bin/clang++
+
+      - name: Build only
+        run: cmake --build build -j
