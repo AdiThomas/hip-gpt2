@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "bench": "gemm",
+  "kernel": "v2",
+  "dtype": "fp32",
+  "platform": "nvidia",
+  "device": "NVIDIA GeForce RTX 4060",
+  "git_sha": "58ca450",
+  "timestamp": "2026-11-17T04:36:15Z",
+  "results": [
+    {"M": 512, "N": 512, "K": 512, "ms_median": 0.219136, "ms_min": 0.217920005, "gflops": 1224.97196, "iters": 100, "max_err": 2.83233686e-07, "verified": true, "full_check": true},
+    {"M": 1024, "N": 1024, "K": 1024, "ms_median": 1.66191995, "ms_min": 1.65478396, "gflops": 1292.17033, "iters": 100, "max_err": 3.04469476e-07, "verified": true, "full_check": true},
+    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 13.3160963, "ms_min": 13.2065277, "gflops": 1290.15808, "iters": 75, "max_err": 3.13163342e-07, "verified": true, "full_check": true},
+    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 120.12851, "ms_min": 119.899139, "gflops": 1144.09938, "iters": 9, "max_err": 1.59822883e-07, "verified": true, "full_check": false},
+    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 974.718994, "ms_min": 973.195251, "gflops": 1128.02934, "iters": 5, "max_err": 1.84925957e-07, "verified": true, "full_check": false}
+  ]
+}
