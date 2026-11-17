@@ -4,3 +4,6 @@ build*/
 .cache/
 models/
 __pycache__/
+.venv/
+tmp/
+build-*/

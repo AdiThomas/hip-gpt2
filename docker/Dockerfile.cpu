@@ -1,0 +1,20 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        clang g++ make cmake ninja-build libtbb-dev git \
+        python3 python3-numpy python3-matplotlib python3-yaml \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Same HIP-CPU commit as .github/workflows/ci.yml (HIP_CPU_COMMIT).
+ARG HIP_CPU_COMMIT=e112c935057434897bb12d9ab3910380a8bd5f58
+RUN mkdir -p /opt/HIP-CPU \
+    && git -C /opt/HIP-CPU init -q \
+    && git -C /opt/HIP-CPU remote add origin https://github.com/ROCm/HIP-CPU.git \
+    && git -C /opt/HIP-CPU fetch --depth 1 origin "$HIP_CPU_COMMIT" \
+    && git -C /opt/HIP-CPU checkout -q FETCH_HEAD \
+    && test "$(git -C /opt/HIP-CPU rev-parse HEAD)" = "$HIP_CPU_COMMIT"
+
+WORKDIR /work

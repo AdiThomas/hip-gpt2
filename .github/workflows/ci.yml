@@ -51,9 +51,8 @@ jobs:
     runs-on: ubuntu-24.04
     continue-on-error: true
     container:
-      # OWNER: confirm this tag exists on Docker Hub (rocm/dev-ubuntu-24.04) and bump
-      # the ROCm version as needed. The image is large; if the hosted runner runs out of
-      # disk, use a larger runner or a slimmer tag.
+      # Tag verified to exist on Docker Hub (docker manifest inspect, 2026-11). The image is
+      # large; if the hosted runner runs out of disk, use a larger runner or a slimmer tag.
       image: rocm/dev-ubuntu-24.04:6.4.1
     steps:
       # git must exist before actions/checkout, cmake before configure.
