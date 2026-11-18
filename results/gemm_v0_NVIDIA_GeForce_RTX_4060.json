@@ -5,7 +5,7 @@
   "dtype": "fp32",
   "platform": "nvidia",
   "device": "NVIDIA GeForce RTX 4060",
-  "git_sha": "58ca450",
+  "git_sha": "9b04e5a",
   "timestamp": "2026-11-18T04:05:10Z",
   "results": [
     {"M": 512, "N": 512, "K": 512, "ms_median": 1.21958399, "ms_min": 1.21548796, "gflops": 220.104116, "iters": 100, "max_err": 2.83233686e-07, "verified": true, "full_check": true},

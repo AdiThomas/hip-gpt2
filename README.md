@@ -37,7 +37,7 @@ In words: the tokenizer and weight loader are plain C++ (no GPU). The engine run
 
 ## Results
 
-Device: `NVIDIA GeForce RTX 4060` (8 GB, HIP 6.4.3 on CUDA 12.6, WSL2/Docker), commit `58ca450`, date `2026-11-18`. Medians of 100 timed launches; run-to-run spread for v4 at 4096 is about 3%. AMD MI300X: pending.
+Device: `NVIDIA GeForce RTX 4060` (8 GB, HIP 6.4.3 on CUDA 12.6, WSL2/Docker), commit `9b04e5a`, date `2026-11-18`. Medians of 100 timed launches; run-to-run spread for v4 at 4096 is about 3%. AMD MI300X: pending.
 
 ### GEMM, FP32 (GFLOPS, square matrices, higher is better)
 

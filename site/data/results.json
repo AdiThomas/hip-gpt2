@@ -9,7 +9,7 @@
    "gemm": {
     "hipblas": {
      "dtype": "fp32",
-     "git_sha": "58ca450",
+     "git_sha": "9b04e5a",
      "date": "2026-11-18",
      "source": "results/gemm_hipblas_NVIDIA_GeForce_RTX_4060.json",
      "points": [
@@ -42,7 +42,7 @@
     },
     "hipblas_fp16": {
      "dtype": "fp16",
-     "git_sha": "58ca450",
+     "git_sha": "9b04e5a",
      "date": "2026-11-18",
      "source": "results/gemm_hipblas_fp16_NVIDIA_GeForce_RTX_4060.json",
      "points": [
@@ -75,7 +75,7 @@
     },
     "v0": {
      "dtype": "fp32",
-     "git_sha": "58ca450",
+     "git_sha": "9b04e5a",
      "date": "2026-11-18",
      "source": "results/gemm_v0_NVIDIA_GeForce_RTX_4060.json",
      "points": [
@@ -108,7 +108,7 @@
     },
     "v0_fp16": {
      "dtype": "fp16",
-     "git_sha": "58ca450",
+     "git_sha": "9b04e5a",
      "date": "2026-11-18",
      "source": "results/gemm_v0_fp16_NVIDIA_GeForce_RTX_4060.json",
      "points": [
@@ -141,7 +141,7 @@
     },
     "v1": {
      "dtype": "fp32",
-     "git_sha": "58ca450",
+     "git_sha": "9b04e5a",
      "date": "2026-11-18",
      "source": "results/gemm_v1_NVIDIA_GeForce_RTX_4060.json",
      "points": [
@@ -174,7 +174,7 @@
     },
     "v2": {
      "dtype": "fp32",
-     "git_sha": "58ca450",
+     "git_sha": "9b04e5a",
      "date": "2026-11-18",
      "source": "results/gemm_v2_NVIDIA_GeForce_RTX_4060.json",
      "points": [
@@ -207,7 +207,7 @@
     },
     "v3": {
      "dtype": "fp32",
-     "git_sha": "58ca450",
+     "git_sha": "9b04e5a",
      "date": "2026-11-18",
      "source": "results/gemm_v3_NVIDIA_GeForce_RTX_4060.json",
      "points": [
@@ -240,7 +240,7 @@
     },
     "v4": {
      "dtype": "fp32",
-     "git_sha": "58ca450",
+     "git_sha": "9b04e5a",
      "date": "2026-11-18",
      "source": "results/gemm_v4_NVIDIA_GeForce_RTX_4060.json",
      "points": [
@@ -273,7 +273,7 @@
     },
     "v4_fp16": {
      "dtype": "fp16",
-     "git_sha": "58ca450",
+     "git_sha": "9b04e5a",
      "date": "2026-11-18",
      "source": "results/gemm_v4_fp16_NVIDIA_GeForce_RTX_4060.json",
      "points": [
@@ -306,7 +306,7 @@
     },
     "v5": {
      "dtype": "fp16",
-     "git_sha": "58ca450",
+     "git_sha": "9b04e5a",
      "date": "2026-11-18",
      "source": "results/gemm_v5_NVIDIA_GeForce_RTX_4060.json",
      "points": [

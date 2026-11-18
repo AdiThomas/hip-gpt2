@@ -5,7 +5,7 @@
  "model": "gpt2",
  "platform": "nvidia",
  "device": "NVIDIA GeForce RTX 4060",
- "git_sha": "2de2791",
+ "git_sha": "f1361da",
  "timestamp": "2026-11-18T03:59:18Z",
  "attn": "n/a",
  "gemm_kernel": "n/a",
