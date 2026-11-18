@@ -1,0 +1,20 @@
+{
+ "schema_version": 1,
+ "bench": "llm",
+ "engine": "pytorch",
+ "model": "gpt2",
+ "platform": "nvidia",
+ "device": "NVIDIA GeForce RTX 4060",
+ "git_sha": "2de2791",
+ "timestamp": "2026-11-18T03:59:18Z",
+ "attn": "n/a",
+ "gemm_kernel": "n/a",
+ "sampling": "greedy",
+ "warmup_runs": 1,
+ "prompt_tokens": 86,
+ "gen_tokens": 128,
+ "load_ms": 2644.342,
+ "prefill_ms": 11.8216,
+ "ttft_ms": 11.9404,
+ "decode_tok_per_s": 83.257
+}

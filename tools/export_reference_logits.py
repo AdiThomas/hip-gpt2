@@ -41,7 +41,9 @@ def main():
     os.makedirs(args.out, exist_ok=True)
     model = GPT2LMHeadModel.from_pretrained(args.model).eval().float()
     sd = {k: v.detach().clone().contiguous() for k, v in model.state_dict().items()
-          if not k.endswith("lm_head.weight") and not k.endswith("attn.bias") and not k.endswith("attn.masked_bias")}
+          # ".attn.bias" (leading dot) drops only the causal-mask buffer h.N.attn.bias, not the real
+          # weight h.N.attn.c_attn.bias, which "attn.bias" would also match.
+          if not k.endswith("lm_head.weight") and not k.endswith(".attn.bias") and not k.endswith(".attn.masked_bias")}
     save_file(sd, os.path.join(args.out, "model.safetensors"))
     c = model.config
     cfg = {"model_type": "gpt2", "n_layer": c.n_layer, "n_head": c.n_head, "n_embd": c.n_embd,
