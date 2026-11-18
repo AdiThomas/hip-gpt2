@@ -6,12 +6,12 @@
   "platform": "nvidia",
   "device": "NVIDIA GeForce RTX 4060",
   "git_sha": "58ca450",
-  "timestamp": "2026-11-17T04:37:42Z",
+  "timestamp": "2026-11-18T04:06:57Z",
   "results": [
-    {"M": 512, "N": 512, "K": 512, "ms_median": 1.13961601, "ms_min": 1.13766396, "gflops": 235.549038, "iters": 100, "max_err": 2.46427623e-07, "verified": true, "full_check": true},
-    {"M": 1024, "N": 1024, "K": 1024, "ms_median": 9.01632023, "ms_min": 9.00300789, "gflops": 238.177393, "iters": 100, "max_err": 3.01979424e-07, "verified": true, "full_check": true},
-    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 71.8612442, "ms_min": 71.8407669, "gflops": 239.070021, "iters": 14, "max_err": 2.9140739e-07, "verified": true, "full_check": true},
-    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 581.960693, "ms_min": 581.733398, "gflops": 236.165355, "iters": 5, "max_err": 1.4783043e-07, "verified": true, "full_check": false},
-    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 4646.54541, "ms_min": 4611.19092, "gflops": 236.629911, "iters": 5, "max_err": 1.73546283e-07, "verified": true, "full_check": false}
+    {"M": 512, "N": 512, "K": 512, "ms_median": 1.13958395, "ms_min": 1.13766396, "gflops": 235.555667, "iters": 100, "max_err": 2.46427623e-07, "verified": true, "full_check": true},
+    {"M": 1024, "N": 1024, "K": 1024, "ms_median": 9.00915241, "ms_min": 9.00403214, "gflops": 238.366891, "iters": 100, "max_err": 3.01979424e-07, "verified": true, "full_check": true},
+    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 72.5749741, "ms_min": 71.8530579, "gflops": 236.718916, "iters": 14, "max_err": 2.9140739e-07, "verified": true, "full_check": true},
+    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 584.086548, "ms_min": 583.76886, "gflops": 235.305802, "iters": 5, "max_err": 1.4783043e-07, "verified": true, "full_check": false},
+    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 4622.25635, "ms_min": 4618.04248, "gflops": 237.873356, "iters": 5, "max_err": 1.73546283e-07, "verified": true, "full_check": false}
   ]
 }

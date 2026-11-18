@@ -120,7 +120,7 @@ Weekly rhythm that works for 8 to 10 hours: about 3 hours reading, 4 hours on th
 ## Week 6 (optional buffer, strongly recommended): hardware, CI, and mock interviews
 
 1. **Hardware run.** Get time on an MI300X (AMD Developer Cloud credits) or your own GPU. In order: build for the GPU, `ctest`, `gemm_bench --kernel v5 --test`, the real-GPT-2 comparison (SPEC section 10, H3), benchmarks, profiles. Fill placeholders only from `results/*.json`. Any surprise is *material for the interview*, not a problem to hide.
-2. **CI.** Read `ci.yml`, `bench.yml`, `check_regression.py`. Run `python3 scripts/check_regression.py --self-test`. Create a baseline with `--update-baseline`, then fake a 10% drop in a copy of the JSON and watch it fail. Measure your GPU's run-to-run noise (`{{run_to_run_noise_pct}}`) and decide whether 7% is sensible. Register a self-hosted runner if you want the full pipeline. Questions 34 to 37.
+2. **CI.** Read `ci.yml`, `bench.yml`, `check_regression.py`. Run `python3 scripts/check_regression.py --self-test`. Create a baseline with `--update-baseline`, then fake a 10% drop in a copy of the JSON and watch it fail. Measure your GPU's run-to-run noise (`3`) and decide whether 7% is sensible. Register a self-hosted runner if you want the full pipeline. Questions 34 to 37.
 3. **Mock interviews.** Have a friend (or the tutor skill) pick random questions from the bank and push on follow-ups. Aim: every question answerable in under 90 seconds, with a number or a file path attached. Questions 38 to 40 are the "process and honesty" ones: practise them aloud.
 4. Fill in the "Owner prediction" and "Explanation" sections of each stage page: *prediction versus what the profiler showed* is the story that goes in the blog.
 
@@ -162,7 +162,7 @@ When the pointer is 16-byte aligned and the row stride is a multiple of 4 floats
 Each iteration: issue global loads for slab s+1 into registers, compute slab s from LDS buffer `cur`, store the registers into `cur ^ 1`, then one barrier. The store is safe because `cur ^ 1` was last read in iteration s-1, which ended in a barrier. The barrier publishes the new buffer and guarantees everyone finished reading `cur` before iteration s+1 overwrites it. The global latency overlaps with the FMAs, *if* the compiler schedules the loads early and delays the wait (verify in the profiler, do not assume).
 
 **10. Where does v4 sit on the roofline, and why go to matrix cores next?**
-Per the header: compute-bound on FP32 vector FMAs at large sizes; the remaining stalls are the barrier and occupancy. The FP32 FMA peak is a hard ceiling for scalar code, so the next gain has to come from different hardware: matrix cores, which do 16x16x16 = 4096 FMAs per wave instruction. The realised fraction of peak for v4 is `{{v4_fp32_pct_of_peak}}`.
+Per the header: compute-bound on FP32 vector FMAs at large sizes; the remaining stalls are the barrier and occupancy. The FP32 FMA peak is a hard ceiling for scalar code, so the next gain has to come from different hardware: matrix cores, which do 16x16x16 = 4096 FMAs per wave instruction. The realised fraction of peak for v4 is `39% of the 15.1 TFLOPS datasheet peak`.
 
 ### B. AMD hardware
 
@@ -195,7 +195,7 @@ Attainable FLOP/s = min(peak compute, arithmetic intensity x memory bandwidth). 
 **19. How would you profile v4 on an MI300X?**
 `scripts/profile_amd.sh v4 4096`, which runs `rocprof-compute profile` (with roofline) then `analyze`. Look at VALU utilisation, LDS bank conflicts, occupancy and its limiter, L1/L2 hit rates, achieved HBM bandwidth, and where the point sits on the roofline. Compare each against the header's "PREDICTED BOTTLENECK" and record which prediction was wrong. (Flags are version-dependent: check `--help`.)
 
-**20. Your v4 reaches only `{{v4_pct_of_hipblas}}` of hipBLAS. How do you investigate?**
+**20. Your v4 reaches only `73%` of hipBLAS. How do you investigate?**
 Establish the ceiling first (hardware peak and hipBLAS achieved). Then profile for the limiter: low VALU utilisation with stalls points to latency/occupancy; high LDS conflicts to layout; low bandwidth to access patterns. Typical gaps for a hand kernel: tile sizes not tuned per architecture, no matrix cores, imperfect instruction scheduling. Change one thing at a time and re-measure.
 
 **21. What is the arithmetic intensity of a big square GEMM?**
@@ -213,7 +213,7 @@ Per layer, the keys and values of all earlier tokens are stored so each decode s
 Decode feeds one row, so every weight is read once for a single multiply-add: 0.5 FLOP/byte, far left of the ridge. Tiling cannot create reuse that does not exist; the right goal is streaming the weights at full bandwidth with coalesced loads, so `gemv_xw` is simple (one thread per output column). Prefill has P rows sharing every weight, so it is a real GEMM and uses the ladder's `gemm_fp32_best`.
 
 **25. What bounds decode speed and how could you improve it?**
-Memory bandwidth: roughly `bandwidth / bytes of weights read per token` (about 500 MB of FP32 weights per step; your ceiling is `{{decode_bandwidth_ceiling_tok_s}}`, measured is `{{decode_tok_per_s}}`). Improvements: quantise weights (INT8/FP8, an unimplemented stretch goal) to cut bytes, batch several sequences to reuse weights, fuse kernels (over a hundred launches per token), split-K so small GEMVs fill the whole GPU. Known issues in the code's own comments: only N/64 blocks per layer, so a large GPU is under-occupied.
+Memory bandwidth: roughly `bandwidth / bytes of weights read per token` (about 500 MB of FP32 weights per step; your ceiling is `~544 tokens/s`, measured is `295 tokens/s`). Improvements: quantise weights (INT8/FP8, an unimplemented stretch goal) to cut bytes, batch several sequences to reuse weights, fuse kernels (over a hundred launches per token), split-K so small GEMVs fill the whole GPU. Known issues in the code's own comments: only N/64 blocks per layer, so a large GPU is under-occupied.
 
 **26. Naive versus fused attention: what differs?**
 Naive is three launches communicating through a global `[H][T][C]` score buffer (scores, softmax, weighted sum), with several passes of global traffic. Fused (decode only) is one launch with one block per head, scores in LDS (max 1024 keys), online softmax, so global traffic is only q, K, V and y. It is limited by launching only 12 blocks for GPT-2 small; flash-decoding (several blocks per head with an `(m, l)` merge) is the next step and is not implemented. Prefill always uses the naive path.
@@ -231,7 +231,7 @@ GPT-2 reuses the token-embedding matrix `wte` as the output projection: `logits[
 The harness uses shapes like `1x1x1`, `1x7x5`, `17x17x17`, `333x257x129`, `64x1000x3`, `3x5x1000` (primes, thin, non-multiples of every tile), poisons C with NaN so skipped elements fail, and checks against a double-precision reference. Engine kernels are tested with d = 48, H = 3, T in {1, 2, 13}, V = 301. On a GPU, larger shapes up to 2049x1023x515 are added.
 
 **31. How did you validate the engine?**
-Layered: each kernel against C++ references; the whole model on a tiny random model against an independent float64 numpy implementation (prefill logits, 16 greedy tokens, fused and naive attention, token-by-token decode vs prefill, no-cache path), all within 1e-3 with identical tokens; the generator picks a seed with a top-1/top-2 margin of at least 1e-2 so float noise cannot flip a token. Then real GPT-2 against PyTorch (`tools/compare_logits.py`, target 1e-2 plus identical greedy tokens), which `{{real_gpt2_max_abs_err}}` will record once run. The tiny model cannot expose 12-layer numerical behaviour; say so.
+Layered: each kernel against C++ references; the whole model on a tiny random model against an independent float64 numpy implementation (prefill logits, 16 greedy tokens, fused and naive attention, token-by-token decode vs prefill, no-cache path), all within 1e-3 with identical tokens; the generator picks a seed with a top-1/top-2 margin of at least 1e-2 so float noise cannot flip a token. Then real GPT-2 against PyTorch (`tools/compare_logits.py`, target 1e-2 plus identical greedy tokens), which `3.2e-04` will record once run. The tiny model cannot expose 12-layer numerical behaviour; say so.
 
 **32. How does the tokenizer work, and how do you know it matches OpenAI's?**
 Pre-split text with the GPT-2 regex (contractions; optional space plus a run of letters, digits or punctuation; whitespace with a lookahead rule), map bytes to printable characters, then repeatedly merge the lowest-ranked adjacent pair from `vocab.bpe` and look up `encoder.json`. The regex is hand-coded using generated Unicode tables; correctness is tested by id-for-id comparison with OpenAI's `encoder.py` over a fixture (emoji, CJK, whitespace edge cases, 200 random strings) plus round-trip decoding.
@@ -242,7 +242,7 @@ GPT-2's context is 1024, equal to the fused kernel's LDS score array (`kFusedAtt
 ### E. CI and regression design
 
 **34. Describe the regression gate.**
-`check_regression.py` compares current JSON with committed baselines per `(device, kernel, dtype, M, N, K)`, failing if GFLOPS fall below baseline x (1 - T/100) (default T = 7); for the engine it fails on decode tokens/s dropping or TTFT rising by more than T%; any `verified: false` fails; missing baseline passes with a notice unless `--require-baseline`. Limits: the threshold must sit above run-to-run noise (`{{run_to_run_noise_pct}}`), baselines are per device and only as good as the last update, and the check says nothing about *why*.
+`check_regression.py` compares current JSON with committed baselines per `(device, kernel, dtype, M, N, K)`, failing if GFLOPS fall below baseline x (1 - T/100) (default T = 7); for the engine it fails on decode tokens/s dropping or TTFT rising by more than T%; any `verified: false` fails; missing baseline passes with a notice unless `--require-baseline`. Limits: the threshold must sit above run-to-run noise (`3`), baselines are per device and only as good as the last update, and the check says nothing about *why*.
 
 **35. Why CPU CI on every push but GPU benchmarks on a self-hosted runner?**
 Hosted runners have no GPU, so they can prove correctness (HIP-CPU) and compile-check the ROCm build, never speed. A self-hosted runner on your GPU gives real numbers but is your own machine: `bench.yml` therefore triggers only on pushes to `main` and manual dispatch, not on pull requests, so untrusted code from forks never runs on it.

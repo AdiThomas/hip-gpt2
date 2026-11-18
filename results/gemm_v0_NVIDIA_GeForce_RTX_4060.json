@@ -6,8 +6,12 @@
   "platform": "nvidia",
   "device": "NVIDIA GeForce RTX 4060",
   "git_sha": "58ca450",
-  "timestamp": "2026-11-17T04:39:30Z",
+  "timestamp": "2026-11-18T04:05:10Z",
   "results": [
-    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 563.63623, "ms_min": 559.413269, "gflops": 243.843362, "iters": 20, "max_err": 1.59822883e-07, "verified": true, "full_check": false}
+    {"M": 512, "N": 512, "K": 512, "ms_median": 1.21958399, "ms_min": 1.21548796, "gflops": 220.104116, "iters": 100, "max_err": 2.83233686e-07, "verified": true, "full_check": true},
+    {"M": 1024, "N": 1024, "K": 1024, "ms_median": 8.80844784, "ms_min": 8.80435181, "gflops": 243.798191, "iters": 100, "max_err": 3.04469476e-07, "verified": true, "full_check": true},
+    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 71.0072327, "ms_min": 70.2279663, "gflops": 241.945342, "iters": 15, "max_err": 3.13163342e-07, "verified": true, "full_check": true},
+    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 562.755554, "ms_min": 562.475037, "gflops": 244.224961, "iters": 5, "max_err": 1.59822883e-07, "verified": true, "full_check": false},
+    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 4521.79541, "ms_min": 4520.54004, "gflops": 243.158199, "iters": 5, "max_err": 1.84925957e-07, "verified": true, "full_check": false}
   ]
 }

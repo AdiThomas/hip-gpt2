@@ -1,0 +1,5 @@
+{"schema_version": 1, "bench": "h3", "device": "NVIDIA GeForce RTX 4060", "platform": "nvidia", "date": "2026-11-18",
+ "prompt": "The capital of France is",
+ "prefill_logits": {"rows": 5, "max_abs_err": 3.166e-04, "argmax_agreement": "5/5", "tol": 1e-2},
+ "greedy_32": {"rows": 32, "max_abs_err": 2.441e-04, "argmax_agreement": "32/32", "tol": 1e-2},
+ "commands": ["tools/export_reference_logits.py ... --greedy-ref --max-new-tokens 32", "gpt2 --dump-mode all / last", "tools/compare_logits.py --tol 1e-2"]}

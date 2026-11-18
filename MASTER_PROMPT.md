@@ -74,7 +74,7 @@ Delegate to architect: write SPEC.md for the project above with these hard const
 3. Integrate: build everything on the CPU backend; route each failure to the owning agent (one fix round per agent
    at a time, never two agents on one file).
 4. reviewer: full review of src/kernels/ and llm/. Route every "bug" finding to its owner; re-run tests.
-5. doc-writer: README, docs/stages/v0–v5.md, docs/STUDY_GUIDE.md, docs/BLOG_DRAFT.md, docs/DEMO_VIDEO_SCRIPT.md,
+5. doc-writer: README, docs/stages/v0–v5.md, docs/STUDY_GUIDE.md, docs/BLOG.md, docs/DEMO_VIDEO_SCRIPT.md,
    docs/PROJECT_EXPLAINED.md, with {{placeholders}} for every number. systems-engineer: scripts/make_exercises.py →
    exercises/ (kernel bodies blanked).
 
@@ -90,7 +90,7 @@ Delegate to architect: write SPEC.md for the project above with these hard const
    (tolerance 1e-2); then H4: `gpt2 ... --bench-out results` and `tools/torch_generation_baseline.py`.
 4. doc-writer: write each stage's "what actually happened" paragraph from the real numbers and profiler output
    (prediction vs result, the counter that explains it). doc-filler: fill every {{placeholder}} from results/.
-5. reviewer: check that every claim in README.md and docs/BLOG_DRAFT.md matches a file in results/.
+5. reviewer: check that every claim in README.md and docs/BLOG.md matches a file in results/.
 
 ## Step 4 — Finish
 - Run the full test suite one final time. Commit with a clear message (do not push unless the human says so).

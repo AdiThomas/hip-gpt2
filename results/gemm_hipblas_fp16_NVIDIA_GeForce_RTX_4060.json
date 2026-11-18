@@ -6,12 +6,12 @@
   "platform": "nvidia",
   "device": "NVIDIA GeForce RTX 4060",
   "git_sha": "58ca450",
-  "timestamp": "2026-11-17T04:38:09Z",
+  "timestamp": "2026-11-18T04:07:18Z",
   "results": [
-    {"M": 512, "N": 512, "K": 512, "ms_median": 0.016384, "ms_min": 0.0153599996, "gflops": 16384, "iters": 100, "max_err": 0.000914711062, "verified": true, "full_check": true},
+    {"M": 512, "N": 512, "K": 512, "ms_median": 0.016384, "ms_min": 0.0153919999, "gflops": 16384, "iters": 100, "max_err": 0.000914711062, "verified": true, "full_check": true},
     {"M": 1024, "N": 1024, "K": 1024, "ms_median": 0.0593920015, "ms_min": 0.0583680011, "gflops": 36157.7922, "iters": 100, "max_err": 0.000710026773, "verified": true, "full_check": true},
-    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 1.689376, "ms_min": 1.02092803, "gflops": 10169.3579, "iters": 100, "max_err": 0.000853810656, "verified": true, "full_check": true},
-    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 2.9306879, "ms_min": 2.87641597, "gflops": 46896.4823, "iters": 100, "max_err": 0.000929388295, "verified": true, "full_check": false},
-    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 23.1311359, "ms_min": 22.5740795, "gflops": 47533.8362, "iters": 45, "max_err": 0.000459426983, "verified": true, "full_check": false}
+    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 0.390143991, "ms_min": 0.379904002, "gflops": 44034.6887, "iters": 100, "max_err": 0.000853810656, "verified": true, "full_check": true},
+    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 3.2256, "ms_min": 2.96550393, "gflops": 42608.8025, "iters": 100, "max_err": 0.000929388295, "verified": true, "full_check": false},
+    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 22.8956165, "ms_min": 22.4071674, "gflops": 48022.8006, "iters": 36, "max_err": 0.000459426983, "verified": true, "full_check": false}
   ]
 }

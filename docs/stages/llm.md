@@ -36,21 +36,21 @@ Engine design points to know:
 
 ## Theory-based prediction
 
-- **Decode is memory-bound.** One decode step streams about 124M FP32 parameters, around 500 MB (the 154 MB tied LM head included), at 2 FLOPs per 4-byte weight = 0.5 FLOP/byte. On a device with bandwidth B this gives a ceiling of about `B / 500 MB` tokens per second before any overhead (for MI300X, a datasheet bandwidth of `{{device_hbm_bandwidth_gbs}}` GB/s gives `{{decode_bandwidth_ceiling_tok_per_s}}`). Your measured decode speed divided by that ceiling is the number to report and explain.
+- **Decode is memory-bound.** One decode step streams about 124M FP32 parameters, around 500 MB (the 154 MB tied LM head included), at 2 FLOPs per 4-byte weight = 0.5 FLOP/byte. On a device with bandwidth B this gives a ceiling of about `B / 500 MB` tokens per second before any overhead (for the RTX 4060, a datasheet bandwidth of `272` GB/s gives `~544 tokens/s`; MI300X: pending). Your measured decode speed divided by that ceiling is the number to report and explain.
 - **The engine will be well below that ceiling**, for parallelism reasons: `gemv_xw` launches only `N / 64` blocks (12 to 48 per layer), far fewer than the compute units on a big GPU; the fused attention has only 12 blocks (one per head); layernorm runs a single block per step. Many tiny kernel launches per step (about 12 per layer) add launch latency. Expect low occupancy and low achieved bandwidth in the profiler. Next steps (not implemented): split-K across blocks for the GEMVs, flash-decoding for attention, fusing layernorm and residual adds.
 - **Prefill is compute-bound for long prompts** and uses the ladder; TTFT scales with prompt length and with how good `gemm_fp32_best` is. For very short prompts the launch overhead dominates.
 - **Fused vs naive attention at decode**: fused removes two kernel launches per layer and the score-buffer traffic; the gain is small at short sequence lengths and grows with length. Your guess: `{{owner: predicted fused/naive tokens/s ratio at 128 tokens}}`.
 
 ## Results
 
-Prompt `scripts/bench_prompt.txt`, 128 new tokens, greedy, 1 warm-up run. Device `{{device_name}}`.
+Prompt `scripts/bench_prompt.txt`, 128 new tokens, greedy, 1 warm-up run. Device `NVIDIA GeForce RTX 4060`.
 
 | Configuration | prefill_ms | TTFT (ms) | decode tokens/s | % of bandwidth ceiling |
 |---|---|---|---|---|
-| fused attention, v4 GEMM | `{{llm_prefill_ms}}` | `{{llm_hip_ttft_ms}}` | `{{llm_hip_tok_per_s}}` | `{{llm_pct_bw_ceiling}}` |
-| naive attention, v4 GEMM | `{{llm_naive_prefill_ms}}` | `{{llm_hip_naive_ttft_ms}}` | `{{llm_hip_naive_tok_per_s}}` | `{{llm_naive_pct_bw_ceiling}}` |
-| `--no-kv-cache` (debug) | `{{llm_nocache_prefill_ms}}` | `{{llm_nocache_ttft_ms}}` | `{{llm_nocache_tok_per_s}}` | n/a |
-| PyTorch baseline | n/a | `{{llm_torch_ttft_ms}}` | `{{llm_torch_tok_per_s}}` | `{{llm_torch_pct_bw_ceiling}}` |
+| fused attention, v4 GEMM | `6.6` | `6.8` | `295` | `54%` |
+| naive attention, v4 GEMM | `6.4` | `6.6` | `276` | `51%` |
+| `--no-kv-cache` (debug) | `6.5` | `6.7` | `105` | n/a |
+| PyTorch baseline | n/a | `11.9` | `83` | `15%` |
 
 Per-kernel time share in one decode step (from the profiler): `{{owner: fill per-kernel table: gemv_xw, gemv_rowdot, attention, layernorm, other}}`.
 

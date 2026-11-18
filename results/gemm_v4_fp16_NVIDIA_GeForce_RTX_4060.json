@@ -6,12 +6,12 @@
   "platform": "nvidia",
   "device": "NVIDIA GeForce RTX 4060",
   "git_sha": "58ca450",
-  "timestamp": "2026-11-17T04:37:52Z",
+  "timestamp": "2026-11-18T04:07:05Z",
   "results": [
-    {"M": 512, "N": 512, "K": 512, "ms_median": 0.066399999, "ms_min": 0.0645119995, "gflops": 4042.70271, "iters": 100, "max_err": 2.46427623e-07, "verified": true, "full_check": true},
-    {"M": 1024, "N": 1024, "K": 1024, "ms_median": 0.434047997, "ms_min": 0.427839994, "gflops": 4947.57184, "iters": 100, "max_err": 3.01979424e-07, "verified": true, "full_check": true},
-    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 3.63315201, "ms_min": 3.54099202, "gflops": 4728.64035, "iters": 100, "max_err": 2.9140739e-07, "verified": true, "full_check": true},
-    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 29.7840633, "ms_min": 28.5030403, "gflops": 4614.5132, "iters": 35, "max_err": 1.4783043e-07, "verified": true, "full_check": false},
-    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 240.32666, "ms_min": 236.789566, "gflops": 4575.07139, "iters": 5, "max_err": 1.73546283e-07, "verified": true, "full_check": false}
+    {"M": 512, "N": 512, "K": 512, "ms_median": 0.0664319992, "ms_min": 0.0655039996, "gflops": 4040.75535, "iters": 100, "max_err": 2.46427623e-07, "verified": true, "full_check": true},
+    {"M": 1024, "N": 1024, "K": 1024, "ms_median": 0.429919988, "ms_min": 0.428032011, "gflops": 4995.07748, "iters": 100, "max_err": 3.01979424e-07, "verified": true, "full_check": true},
+    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 3.5880959, "ms_min": 3.25529599, "gflops": 4788.01839, "iters": 100, "max_err": 2.9140739e-07, "verified": true, "full_check": true},
+    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 29.9345913, "ms_min": 28.430336, "gflops": 4591.30883, "iters": 39, "max_err": 1.4783043e-07, "verified": true, "full_check": false},
+    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 238.929825, "ms_min": 236.683258, "gflops": 4601.81825, "iters": 5, "max_err": 1.73546283e-07, "verified": true, "full_check": false}
   ]
 }

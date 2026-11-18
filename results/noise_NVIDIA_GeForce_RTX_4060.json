@@ -1,0 +1,5 @@
+{"schema_version": 1, "bench": "noise", "device": "NVIDIA GeForce RTX 4060", "date": "2026-11-18",
+ "gemm_v4_fp32_4096_gflops_runs": [5794.49, 5948.61, 5838.29],
+ "llm_fused_decode_tok_per_s_runs": [295.418, 302.704, 289.482],
+ "llm_naive_decode_tok_per_s_runs": [276.131, 272.951, 295.525],
+ "note": "three back-to-back runs, RTX 4060, WSL2/Docker; results/llm_*.json hold the median run"}

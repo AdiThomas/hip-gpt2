@@ -11,5 +11,5 @@ description: Run hip-gpt2 benchmarks on the GPU in this machine and refresh ever
    and `python3 tools/torch_generation_baseline.py --model models/gpt2 --prompt-file scripts/bench_prompt.txt --max-new-tokens 128 --out results`.
 5. `python3 scripts/plot_results.py --results results --out docs/img --theme light` → charts.
 6. Delegate placeholder filling in
-   README.md, docs/stages/*.md and docs/BLOG_DRAFT.md to the `doc-filler` agent.
+   README.md, docs/stages/*.md and docs/BLOG.md to the `doc-filler` agent.
 7. Commit results and charts with the device name in the message. Never hand-edit a number.

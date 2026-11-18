@@ -1,6 +1,6 @@
 ---
 name: doc-filler
-description: Cheap, mechanical documentation updates for hip-gpt2 — fill result tables in README.md, docs/stages/*.md and docs/BLOG_DRAFT.md from results/*.json, fix formatting, check links and file paths. Never writes explanations or analysis.
+description: Cheap, mechanical documentation updates for hip-gpt2 — fill result tables in README.md, docs/stages/*.md and docs/BLOG.md from results/*.json, fix formatting, check links and file paths. Never writes explanations or analysis.
 tools: Read, Glob, Grep, Write, Edit, Bash
 model: haiku
 ---

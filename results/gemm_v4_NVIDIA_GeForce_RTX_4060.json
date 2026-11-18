@@ -6,12 +6,12 @@
   "platform": "nvidia",
   "device": "NVIDIA GeForce RTX 4060",
   "git_sha": "58ca450",
-  "timestamp": "2026-11-17T04:36:35Z",
+  "timestamp": "2026-11-18T04:05:57Z",
   "results": [
-    {"M": 512, "N": 512, "K": 512, "ms_median": 0.0501759984, "ms_min": 0.0481280014, "gflops": 5349.87773, "iters": 100, "max_err": 2.83233686e-07, "verified": true, "full_check": true},
-    {"M": 1024, "N": 1024, "K": 1024, "ms_median": 0.325599998, "ms_min": 0.319359988, "gflops": 6595.46579, "iters": 100, "max_err": 3.04469476e-07, "verified": true, "full_check": true},
-    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 4.45951986, "ms_min": 2.58969593, "gflops": 3852.40333, "iters": 100, "max_err": 3.13163342e-07, "verified": true, "full_check": true},
-    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 23.5571194, "ms_min": 22.5105915, "gflops": 5834.28522, "iters": 43, "max_err": 1.59822883e-07, "verified": true, "full_check": false},
-    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 195.212296, "ms_min": 184.54631, "gflops": 5632.38921, "iters": 6, "max_err": 1.84925957e-07, "verified": true, "full_check": false}
+    {"M": 512, "N": 512, "K": 512, "ms_median": 0.0491520017, "ms_min": 0.0481280014, "gflops": 5461.33314, "iters": 100, "max_err": 2.83233686e-07, "verified": true, "full_check": true},
+    {"M": 1024, "N": 1024, "K": 1024, "ms_median": 0.320511997, "ms_min": 0.319487989, "gflops": 6700.1662, "iters": 100, "max_err": 3.04469476e-07, "verified": true, "full_check": true},
+    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 2.96857595, "ms_min": 2.4472959, "gflops": 5787.24259, "iters": 100, "max_err": 3.13163342e-07, "verified": true, "full_check": true},
+    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 23.5386887, "ms_min": 21.9054089, "gflops": 5838.85345, "iters": 50, "max_err": 1.59822883e-07, "verified": true, "full_check": false},
+    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 195.815231, "ms_min": 184.934402, "gflops": 5615.04649, "iters": 6, "max_err": 1.84925957e-07, "verified": true, "full_check": false}
   ]
 }

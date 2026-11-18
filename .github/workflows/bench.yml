@@ -72,7 +72,7 @@ jobs:
             git -C gh-pages remote add origin "$repo_url"
           fi
           python3 scripts/update_history.py --results results --history gh-pages/data/history.json
-          cp site/index.html site/chart.js gh-pages/
+          cp -r site/. gh-pages/
           touch gh-pages/.nojekyll
           cd gh-pages
           git config user.name "github-actions[bot]"

@@ -2,9 +2,9 @@
 
 This document is for you (Ad). It assumes you know C/C++ and basic CS, but nothing about GPUs. After reading it you should be able to say what every folder, file and test in this repo is for, why it was built that way, and what has and has not been proven.
 
-Companion documents: [README.md](../README.md) (overview and build steps), [SETUP.md](SETUP.md) (installing HIP, ROCm, CUDA), [stages/](stages/) (one page per GEMM stage: [v0](stages/v0.md), [v1](stages/v1.md), [v2](stages/v2.md), [v3](stages/v3.md), [v4](stages/v4.md), [v5](stages/v5.md)), [STUDY_GUIDE.md](STUDY_GUIDE.md) (the plan to own the code, plus interview questions), [BLOG_DRAFT.md](BLOG_DRAFT.md), [DEMO_VIDEO_SCRIPT.md](DEMO_VIDEO_SCRIPT.md), and the design contract [../SPEC.md](../SPEC.md).
+Companion documents: [README.md](../README.md) (overview and build steps), [SETUP.md](SETUP.md) (installing HIP, ROCm, CUDA), [stages/](stages/) (one page per GEMM stage: [v0](stages/v0.md), [v1](stages/v1.md), [v2](stages/v2.md), [v3](stages/v3.md), [v4](stages/v4.md), [v5](stages/v5.md)), [STUDY_GUIDE.md](STUDY_GUIDE.md) (the plan to own the code, plus interview questions), [BLOG.md](BLOG.md), [DEMO_VIDEO_SCRIPT.md](DEMO_VIDEO_SCRIPT.md), and the design contract [../SPEC.md](../SPEC.md).
 
-Every performance number in this repo is a `{{placeholder}}`. No GPU has run this code yet. That is deliberate and is covered bluntly in section 7.
+Performance numbers in this repo were measured on an NVIDIA RTX 4060 (2026-11-18) and come from `results/*.json`. AMD MI300X numbers are still pending. Section 7 says bluntly what is verified and what is not.
 
 ---
 
@@ -116,7 +116,7 @@ Numbers you can derive yourself from the code:
 - Decode GEMV in the engine (`src/llm/kernels/linear.hip`): every 4-byte weight is used for one multiply-add (2 FLOPs): **0.5 FLOP/byte**. Far left of any GPU's ridge, so decode speed is set by memory bandwidth, not compute.
 - A large square GEMM of size N has intensity about N/6 FLOP/byte (2N^3 FLOPs over about 3N^2 x 4 bytes), which is why big GEMMs can be compute-bound.
 
-The profiling scripts (section 6) produce roofline plots, and `{{roofline_ridge_flop_per_byte}}` and the achieved points are placeholders until you run them on a GPU.
+The profiling scripts (section 6) produce roofline plots, and `~56 FLOP/byte (FP32, datasheet)` and the achieved points are placeholders until you run them on a GPU.
 
 ---
 
@@ -383,7 +383,7 @@ The handle is created once lazily; `hipblasSetStream` is called per launch. For 
 - `T` = `--threshold`, else env `PERF_THRESHOLD_PCT`, else **7**.
 - Exit codes: 0 pass, 1 regression, 2 usage error.
 
-You create baselines with `--update-baseline` (it refuses if anything is unverified) and commit them. **A design caveat to be honest about:** 7% is a guess. Run-to-run noise on your GPU (thermals, clocks, shared cloud machines) may be bigger or smaller. Measure it (`{{run_to_run_noise_pct}}`), then set the threshold above it, or the gate will cry wolf.
+You create baselines with `--update-baseline` (it refuses if anything is unverified) and commit them. **A design caveat to be honest about:** 7% is a guess. Run-to-run noise on your GPU (thermals, clocks, shared cloud machines) may be bigger or smaller. Measure it (`3`), then set the threshold above it, or the gate will cry wolf.
 
 **History and chart.** `scripts/update_history.py` appends one entry per `(git_sha, device)` to `data/history.json` (only verified GEMM rows and the hip-gpt2 LLM result), de-duplicated. The workflow publishes `site/index.html` and `site/chart.js` plus that JSON to the `gh-pages` branch. `chart.js` draws GFLOPS-per-kernel against commit at the largest common size, plus TTFT and tokens/s. You must enable Pages for the `gh-pages` branch once.
 
@@ -464,7 +464,7 @@ Sampling happens on the host (`sampler.cpp`): **greedy** picks the lowest index 
 - **Prefill** processes all P prompt tokens at once. Each linear layer is `Y[P,N] = X[P,K] @ W[K,N]`: a real GEMM where every weight is reused P times. The engine calls `gemm_fp32_best` (which is v4 from the ladder), then a bias epilogue kernel (`bias_add` / `bias_gelu`). **This is where the ladder gets used.**
 - **Decode** processes one new token. Each linear layer is `y[N] = x[K] @ W[K,N]`: a matrix times a *vector* (GEMV). Every 4-byte weight is read once and used for one multiply-add: 0.5 FLOP/byte, far left of the roofline. A tiled GEMM buys nothing; the job is to stream the weights from memory at full bandwidth. So `gemv_xw` is deliberately simple, with coalesced loads and bias/GELU fused in.
 
-So an upper bound on decode speed is roughly `memory bandwidth / bytes of weights read per token`. The `engine.hpp` comment sizes the weights at about 500 MB of FP32 per step; your ceiling for your GPU is `{{decode_bandwidth_ceiling_tok_s}}`, and the gap between that and the measured rate is what an optimisation story would be about. Known reasons for a gap (named in `linear.hip`): too few blocks to fill a big GPU (N/64 blocks per layer), and per-kernel launch overhead (over a hundred kernel launches per decoded token: about 10 per layer times 12 layers).
+So an upper bound on decode speed is roughly `memory bandwidth / bytes of weights read per token`. The `engine.hpp` comment sizes the weights at about 500 MB of FP32 per step; your ceiling for your GPU is `~544 tokens/s`, and the gap between that and the measured rate is what an optimisation story would be about. Known reasons for a gap (named in `linear.hip`): too few blocks to fill a big GPU (N/64 blocks per layer), and per-kernel launch overhead (over a hundred kernel launches per decoded token: about 10 per layer times 12 layers).
 
 #### 6.7 How correctness is proven
 
@@ -494,12 +494,15 @@ On the CPU run when this was written, measured errors were around 1e-5 (toleranc
 | GEMM v0 to v4, `v0_fp16`, `v4_fp16` logic and edge handling | **Verified on CPU only**: logic is right, nothing known about GPU behaviour |
 | Engine, tokenizer, loader, sampler vs numpy/OpenAI references on the tiny model | **Verified on CPU** |
 | Script logic (`check_regression.py` self-test, `make_exercises.py` self-test) | **Verified** |
-| **v5 matrix-core paths** (MFMA, RDNA3 WMMA, NVIDIA WMMA) | **Never compiled or run.** Lane layouts come from documentation and could be wrong. Needs an MI300X (MFMA), RX 7900 (WMMA RDNA3) or RTX card (NVIDIA WMMA). |
-| **hipBLAS baselines** | **Never compiled.** Includes the `hipblasHalf` type handling and the transpose trick. |
-| **float4 alignment behaviour, wave-size assumptions, races** on real hardware | **Unverified.** HIP-CPU cannot see these. |
-| **Real GPT-2 weights** (key names, 12-layer numerics) | **Not run.** Needs network, Python, torch. |
-| **Every performance number**, every "WHY FASTER" claim, the profiler predictions, tile-size choices, the 7% threshold | **Predictions only.** The comments are hypotheses, not measurements. |
-| `rocm-compile` job, `bench.yml`, Pages publishing, profiling scripts | **Never executed.** Container tag, flags and runner setup need your confirmation. |
+| **v5 NVIDIA WMMA** (`nvcuda::wmma`) | **Verified on RTX 4060**: compiled cleanly, passes all 12 test shapes, 14.8 TFLOPS at 4096. |
+| **v5 MFMA (MI300X) and RDNA3 WMMA** | **Not run on hardware.** Compiled device-only, MFMA emulated on CPU. Needs an MI300X / RX 7900. |
+| **hipBLAS baselines** | **Verified on RTX 4060** (hipBLAS built with its cuBLAS backend). |
+| **float4 alignment behaviour, wave-size assumptions, races** | **Verified on RTX 4060** (wave size 32) via the GPU-only larger test shapes; still unverified on AMD wave64. |
+| **Real GPT-2 weights** (key names, 12-layer numerics) | **Verified on RTX 4060**: max abs logit error 3.2e-4, greedy tokens identical for 32 steps. One bug found and fixed in the export script (it dropped `c_attn.bias`). |
+| **Performance numbers** | **Measured on RTX 4060** (`results/*.json`). MI300X pending. |
+| "WHY FASTER" claims and profiler predictions | **Still hypotheses.** No profiler counters collected yet. The ladder ordering matches the predictions; the fused-attention speedup did not show up on the 4060 at this context length. |
+| 7% regression threshold | Measured spread for v4 at 4096 is about 3% over 3 runs, so 7% leaves headroom. |
+| `rocm-compile` job container tag | **Verified to exist.** `bench.yml`, the self-hosted runner and profiling scripts have not run yet. |
 | The Opus review pass | Happened per the build history; the report is not in the repo. |
 
 First things to do on real hardware, in order: build for your GPU and run `ctest` (the `gemm_correctness` test on a GPU adds 512 to 2049-sized shapes); `gemm_bench --kernel v5 --test`; the H3 GPT-2 comparison; then benchmarks and profiles; then fill placeholders (the `doc-filler` agent or by hand from `results/*.json`).

@@ -2,7 +2,7 @@
 
 A ladder of six hand-written HIP matrix-multiply (GEMM) kernels, from a naive baseline (v0) to matrix-core instructions (v5), each benchmarked against the vendor library (hipBLAS). The kernels feed a small GPT-2 inference engine written in C++/HIP, with no PyTorch at inference time, and a performance CI loop tracks every commit.
 
-> Every number in this README is a `{{placeholder}}`. No GPU has run this code yet. See [Status](#status--whats-verified) for what has been checked and what has not.
+> **Measured on an NVIDIA RTX 4060** (HIP on CUDA, Windows 11 + WSL2/Docker). Every number below comes from a file in [`results/`](results/). AMD Instinct MI300X results are pending. See [Status](#status--whats-verified) for what is verified and what is not. Write-up with interactive charts: https://adithomas.github.io/hip-gpt2/
 
 ## Architecture
 
@@ -37,27 +37,27 @@ In words: the tokenizer and weight loader are plain C++ (no GPU). The engine run
 
 ## Results
 
-All values are `{{placeholders}}` until the owner runs the benchmarks. Device: `{{device_name}}`, commit `{{git_sha}}`, date `{{bench_date}}`.
+Device: `NVIDIA GeForce RTX 4060` (8 GB, HIP 6.4.3 on CUDA 12.6, WSL2/Docker), commit `58ca450`, date `2026-11-18`. Medians of 100 timed launches; run-to-run spread for v4 at 4096 is about 3%. AMD MI300X: pending.
 
 ### GEMM, FP32 (GFLOPS, square matrices, higher is better)
 
 | Kernel | 1024 | 2048 | 4096 | 8192 |
 |---|---|---|---|---|
-| v0 naive | `{{v0_fp32_1024_gflops}}` | `{{v0_fp32_2048_gflops}}` | `{{v0_fp32_4096_gflops}}` | `{{v0_fp32_8192_gflops}}` |
-| v1 coalesced | `{{v1_fp32_1024_gflops}}` | `{{v1_fp32_2048_gflops}}` | `{{v1_fp32_4096_gflops}}` | `{{v1_fp32_8192_gflops}}` |
-| v2 LDS tiled | `{{v2_fp32_1024_gflops}}` | `{{v2_fp32_2048_gflops}}` | `{{v2_fp32_4096_gflops}}` | `{{v2_fp32_8192_gflops}}` |
-| v3 register blocked | `{{v3_fp32_1024_gflops}}` | `{{v3_fp32_2048_gflops}}` | `{{v3_fp32_4096_gflops}}` | `{{v3_fp32_8192_gflops}}` |
-| v4 float4 + double buffer | `{{v4_fp32_1024_gflops}}` | `{{v4_fp32_2048_gflops}}` | `{{v4_fp32_4096_gflops}}` | `{{v4_fp32_8192_gflops}}` |
-| hipBLAS (`hipblas`) | `{{hipblas_fp32_1024_gflops}}` | `{{hipblas_fp32_2048_gflops}}` | `{{hipblas_fp32_4096_gflops}}` | `{{hipblas_fp32_8192_gflops}}` |
+| v0 naive | `244` | `242` | `244` | `243` |
+| v1 coalesced | `1,012` | `1,012` | `905` | `912` |
+| v2 LDS tiled | `1,292` | `1,291` | `1,142` | `1,124` |
+| v3 register blocked | `3,267` | `3,358` | `3,162` | `3,148` |
+| v4 float4 + double buffer | `6,700` | `5,787` | `5,839` | `5,615` |
+| hipBLAS (`hipblas`) | `6,809` | `8,188` | `8,032` | `7,820` |
 
 ### GEMM, FP16 inputs with FP32 output (GFLOPS)
 
 | Kernel | 1024 | 2048 | 4096 | 8192 |
 |---|---|---|---|---|
-| v0_fp16 | `{{v0_fp16_1024_gflops}}` | `{{v0_fp16_2048_gflops}}` | `{{v0_fp16_4096_gflops}}` | `{{v0_fp16_8192_gflops}}` |
-| v4_fp16 | `{{v4_fp16_1024_gflops}}` | `{{v4_fp16_2048_gflops}}` | `{{v4_fp16_4096_gflops}}` | `{{v4_fp16_8192_gflops}}` |
-| v5 (MFMA / WMMA) | `{{v5_fp16_1024_gflops}}` | `{{v5_fp16_2048_gflops}}` | `{{v5_fp16_4096_gflops}}` | `{{v5_fp16_8192_gflops}}` |
-| hipBLAS (`hipblas_fp16`) | `{{hipblas_fp16_1024_gflops}}` | `{{hipblas_fp16_2048_gflops}}` | `{{hipblas_fp16_4096_gflops}}` | `{{hipblas_fp16_8192_gflops}}` |
+| v0_fp16 | `238` | `237` | `235` | `238` |
+| v4_fp16 | `4,995` | `4,788` | `4,591` | `4,602` |
+| v5 (MFMA / WMMA) | `23,046` | `21,789` | `14,821` | `12,382` |
+| hipBLAS (`hipblas_fp16`) | `36,158` | `44,035` | `42,609` | `48,023` |
 
 `hipblas_fp16` produces FP16 output (and may accumulate in FP16), so it is a speed reference, not an accuracy-equal comparison.
 
@@ -71,17 +71,21 @@ All values are `{{placeholders}}` until the owner runs the benchmarks. Device: `
 
 | Engine | Device | TTFT (ms) | Decode (tokens/s) |
 |---|---|---|---|
-| hip-gpt2 (fused attention, `{{gemm_kernel}}` GEMM) | `{{device_name}}` | `{{llm_hip_ttft_ms}}` | `{{llm_hip_tok_per_s}}` |
-| hip-gpt2 (naive attention) | `{{device_name}}` | `{{llm_hip_naive_ttft_ms}}` | `{{llm_hip_naive_tok_per_s}}` |
-| PyTorch (`tools/torch_generation_baseline.py`) | `{{device_name}}` | `{{llm_torch_ttft_ms}}` | `{{llm_torch_tok_per_s}}` |
+| hip-gpt2 (fused attention, `v4` GEMM) | `NVIDIA GeForce RTX 4060` | `6.8` | `295` |
+| hip-gpt2 (naive attention) | `NVIDIA GeForce RTX 4060` | `6.6` | `276` |
+| PyTorch (`tools/torch_generation_baseline.py`) | `NVIDIA GeForce RTX 4060` | `11.9` | `83` |
 
-Correctness vs the PyTorch reference on real GPT-2 weights: max abs logit error `{{h3_max_abs_err}}` (target <= 1e-2), greedy tokens identical for 32 steps: `{{h3_greedy_match}}`.
+Correctness vs the PyTorch reference on real GPT-2 weights: max abs logit error `3.2e-04` (target <= 1e-2), greedy tokens identical for 32 steps: `yes (32/32)`.
 
 TTFT = time to first token (prefill plus sampling, measured on the host). Decode tokens/s = (generated tokens - 1) / wall time of the decode loop. Both are measured the same way in the C++ engine and the PyTorch script.
 
 ## Quick start
 
 You need CMake 3.28 or newer for the GPU builds. A step-by-step beginner guide is in [docs/SETUP.md](docs/SETUP.md).
+
+### Try GPT-2 on an NVIDIA GPU from Windows
+
+With Docker Desktop installed: `.\scripts\gpt2.ps1 "Once upon a time"` (or `-Chat` for a prompt loop). Details in [docs/SETUP.md](docs/SETUP.md#a0-windows--nvidia-gpu-via-docker-no-linux-install).
 
 ### CPU (HIP-CPU, no GPU needed)
 
@@ -154,11 +158,11 @@ src/llm/              GPT-2 engine, sampler, CLI (main.hip), kernels/ (layernorm
 tests/                unit and end-to-end tests; tests/data/tiny is a small random GPT-2 with reference outputs
 tools/                Python helpers: reference logits, PyTorch baseline, tiny-model generator, tokenizer fixtures
 scripts/              regression check, history, plotting, profiling wrappers, exercise generator
-site/                 static Pages chart (index.html + chart.js)
+site/                 Pages site: write-up (index.html), perf history (perf.html + chart.js), data/
 perf/baselines/       committed baseline JSON per device (created by --update-baseline)
 assets/gpt2/          GPT-2 vocabulary files (encoder.json, vocab.bpe) + MIT license
 exercises/            the same source tree with kernel bodies blanked (see below)
-docs/                 SETUP.md, stages/, BLOG_DRAFT.md, DEMO_VIDEO_SCRIPT.md
+docs/                 SETUP.md, stages/, BLOG.md, DEMO_VIDEO_SCRIPT.md
 .github/workflows/    ci.yml, bench.yml
 ```
 
@@ -196,15 +200,19 @@ Setup details: [docs/SETUP.md](docs/SETUP.md#d-github-repo-self-hosted-runner-an
 - The regression script and the exercise generator (self-tests).
 - `v5` MFMA lane layout (MI300X path): checked by hand, compiled device-only for gfx942 with clang (emits `v_mfma_f32_16x16x16_f16`), and emulated on the CPU through the real staging/store code (CTest `v5_mfma_emulation`). See [docs/REVIEW.md](docs/REVIEW.md).
 
-**Needs a GPU, not yet run by anyone:**
-- Every performance number, and every claim in the stage docs about which stage helps (they are predictions).
-- `v5` actually executing on hardware. MFMA and RDNA3 WMMA were compiled device-only and MFMA was emulated (reviewer confidence ~90%); the NVIDIA `nvcuda::wmma` path has never been compiled (no CUDA SDK here).
-- The hipBLAS baselines (`hipblas`, `hipblas_fp16`): never compiled here.
-- GPU-only failure modes that HIP-CPU hides: misaligned vector loads, races between barriers, wave-size assumptions, larger test shapes (512, 1031x517x263, 2049x1023x515 are added on GPU).
-- Real GPT-2 weights: tensor names, the 12-layer numerics, and the greedy-token match over 32 steps.
-- The `rocm-compile` job's container tag, the self-hosted runner, and the Pages publish.
-- The 7% regression threshold: noise level on real hardware is unknown, so it may need tuning.
+**Verified on an NVIDIA RTX 4060 (2026-11-17/18, HIP 6.4.3 on CUDA 12.6, Docker on WSL2):**
+- Builds with 0 errors and 0 warnings; `ctest` 9/9.
+- All 10 kernels, including `v5` via `nvcuda::wmma` and both hipBLAS baselines, pass `gemm_bench --test` on 12 shapes up to 2049x1023x515 (v5 max error 4.4e-7).
+- Every number in [Results](#results), from `results/*.json`.
+- Real GPT-2 weights against PyTorch: max abs logit error 3.2e-4 over the prompt (tolerance 1e-2), and greedy tokens identical for 32 steps (`results/h3_NVIDIA_GeForce_RTX_4060.json`). This found and fixed one bug: `tools/export_reference_logits.py` was dropping the `c_attn.bias` weights.
+- The `rocm-compile` CI container tag (`rocm/dev-ubuntu-24.04:6.4.1`) exists.
+
+**Not yet verified:**
+- `v5` MFMA on AMD Instinct (MI300X) and RDNA3 WMMA: compiled device-only and MFMA emulated on CPU (reviewer confidence ~90%); still needs a real AMD GPU.
+- Profiler counters (`scripts/profile_*.sh`): not yet collected, so the "WHY FASTER" comments in the kernels are still hypotheses.
+- The self-hosted runner and the benchmark CI job.
+- On the 4060, fused decode attention is no faster than the naive version at this prompt length (296 vs 281 tokens/s averaged over 3 runs, with the ranges overlapping).
 
 ## License
 
-The GPT-2 vocabulary files in `assets/gpt2/` (`encoder.json`, `vocab.bpe`) come from OpenAI's gpt-2 repository, released under a Modified MIT License; its text is in `assets/gpt2/LICENSE`. `tools/third_party/encoder.py` is an unmodified copy from the same repo. The rest of this repository has no license file yet: MIT is a good default for a portfolio project (add a top-level `LICENSE` with your name and the year).
+The GPT-2 vocabulary files in `assets/gpt2/` (`encoder.json`, `vocab.bpe`) come from OpenAI's gpt-2 repository, released under a Modified MIT License; its text is in `assets/gpt2/LICENSE`. `tools/third_party/encoder.py` is an unmodified copy from the same repo. The rest of this repository is under the MIT License; see [LICENSE](LICENSE).

@@ -13,6 +13,38 @@ Terminology: **HIP** is AMD's C++ GPU programming layer. The same source compile
 
 ---
 
+## a0) Windows + NVIDIA GPU via Docker (no Linux install)
+
+This is how the RTX 4060 numbers in this repo were produced: Windows 11, Docker Desktop (WSL2 backend), NVIDIA driver on Windows. No dual-boot and no host toolchain needed. Check GPU passthrough first:
+
+```powershell
+docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi
+```
+
+**Try GPT-2 on your GPU (one command):**
+
+```powershell
+.scriptsgpt2.ps1 "Once upon a time"            # one completion
+.scriptsgpt2.ps1 -Chat                         # type prompts in a loop
+.scriptsgpt2.ps1 "The capital of France is" -Tokens 20 -Temperature 0   # greedy
+```
+
+The first run builds the image (CUDA 12.6 + HIP 6.4.3 for the NVIDIA platform + hipBLAS with its cuBLAS backend), builds the engine and downloads GPT-2; later runs take a few seconds. GPT-2 small continues text; it is not a chat assistant.
+
+**Full build, tests and benchmarks** (Git Bash; `MSYS_NO_PATHCONV=1` stops Git Bash rewriting the paths):
+
+```bash
+docker build -t hip-gpt2-cpu -f docker/Dockerfile.cpu docker
+docker build -t hip-gpt2-nv  -f docker/Dockerfile.nv  docker
+R="C:/path/to/hip-gpt2"   # your checkout
+# CPU backend
+MSYS_NO_PATHCONV=1 docker run --rm -v "$R:/work" -v hipgpt2-build-cpu:/build -w /work hip-gpt2-cpu bash -lc   "git config --global --add safe.directory /work; cmake -S . -B /build/build-cpu -DGEMM_BACKEND=cpu -DHIP_CPU_DIR=/opt/HIP-CPU && cmake --build /build/build-cpu -j && ctest --test-dir /build/build-cpu --output-on-failure"
+# NVIDIA GPU
+MSYS_NO_PATHCONV=1 docker run --rm --gpus all -v "$R:/work" -v hipgpt2-build-nv:/build -w /work hip-gpt2-nv bash -lc   "git config --global --add safe.directory /work; cmake -S . -B /build/build-nv -DCMAKE_HIP_PLATFORM=nvidia -DCMAKE_HIP_ARCHITECTURES=89 -DHIPGPT2_ENABLE_HIPBLAS=ON && cmake --build /build/build-nv -j 8 && ctest --test-dir /build/build-nv --output-on-failure && /build/build-nv/gemm_bench --kernel all --out results"
+```
+
+Build directories live in named Docker volumes (`hipgpt2-build-*`), because building through the Windows bind mount is slow. For the real-GPT-2 check (section c), run the same commands inside the `hip-gpt2-nv` container with `-v hipgpt2-venv:/venv`; `scripts/docker_gpt2_setup.sh` shows the venv setup.
+
 ## a) RTX 4060 PC (HIP on NVIDIA)
 
 ### 1. NVIDIA driver
@@ -190,7 +222,7 @@ Settings, Secrets and variables, Actions, tab **Variables**:
 
 ### 4. Pages from `gh-pages`
 
-`bench.yml` creates the `gh-pages` branch on its first successful benchmark run and pushes `index.html`, `chart.js` and `data/history.json` to it. After that run: Settings, Pages, "Deploy from a branch", branch `gh-pages`, folder `/ (root)`. The chart appears at `https://<you>.github.io/hip-gpt2/` a minute or so later. Use this URL in the README and the demo video.
+`bench.yml` creates the `gh-pages` branch on its first successful benchmark run and copies everything in `site/` (the write-up `index.html`, the history chart `perf.html` + `chart.js`) and appends `data/history.json`. After that run: Settings, Pages, "Deploy from a branch", branch `gh-pages`, folder `/ (root)`. The write-up appears at `https://<you>.github.io/hip-gpt2/` and the history chart at `.../perf.html` a minute or so later. Use this URL in the README and the demo video.
 
 ### 5. Workflow permissions
 

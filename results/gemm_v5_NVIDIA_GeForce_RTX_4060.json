@@ -6,12 +6,12 @@
   "platform": "nvidia",
   "device": "NVIDIA GeForce RTX 4060",
   "git_sha": "58ca450",
-  "timestamp": "2026-11-17T04:38:00Z",
+  "timestamp": "2026-11-18T04:07:12Z",
   "results": [
-    {"M": 512, "N": 512, "K": 512, "ms_median": 0.0184320007, "ms_min": 0.0182399992, "gflops": 14563.555, "iters": 100, "max_err": 4.12877367e-07, "verified": true, "full_check": true},
-    {"M": 1024, "N": 1024, "K": 1024, "ms_median": 0.0931840017, "ms_min": 0.0901120007, "gflops": 23045.6259, "iters": 100, "max_err": 5.99001999e-07, "verified": true, "full_check": true},
-    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 0.791552007, "ms_min": 0.775135994, "gflops": 21704.0309, "iters": 100, "max_err": 7.77065788e-07, "verified": true, "full_check": true},
-    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 9.23740768, "ms_min": 9.14534378, "gflops": 14878.5198, "iters": 100, "max_err": 6.95814023e-07, "verified": true, "full_check": false},
-    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 88.4654083, "ms_min": 87.7660141, "gflops": 12428.7182, "iters": 12, "max_err": 7.37297506e-07, "verified": true, "full_check": false}
+    {"M": 512, "N": 512, "K": 512, "ms_median": 0.0194559991, "ms_min": 0.0174080003, "gflops": 13797.0532, "iters": 100, "max_err": 4.12877367e-07, "verified": true, "full_check": true},
+    {"M": 1024, "N": 1024, "K": 1024, "ms_median": 0.0931840017, "ms_min": 0.0911360011, "gflops": 23045.6259, "iters": 100, "max_err": 5.99001999e-07, "verified": true, "full_check": true},
+    {"M": 2048, "N": 2048, "K": 2048, "ms_median": 0.788479984, "ms_min": 0.77916801, "gflops": 21788.5927, "iters": 100, "max_err": 7.77065788e-07, "verified": true, "full_check": true},
+    {"M": 4096, "N": 4096, "K": 4096, "ms_median": 9.27334404, "ms_min": 9.19548798, "gflops": 14820.8621, "iters": 100, "max_err": 6.95814023e-07, "verified": true, "full_check": false},
+    {"M": 8192, "N": 8192, "K": 8192, "ms_median": 88.8002548, "ms_min": 88.0476151, "gflops": 12381.8522, "iters": 12, "max_err": 7.37297506e-07, "verified": true, "full_check": false}
   ]
 }
