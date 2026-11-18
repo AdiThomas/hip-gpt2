@@ -1,0 +1,426 @@
+{
+ "devices": {
+  "NVIDIA GeForce RTX 4060": {
+   "spec": {
+    "bw_gbs": 272,
+    "fp32_tflops": 15.1,
+    "stack": "HIP 6.4.3 on CUDA 12.6, WSL2/Docker"
+   },
+   "gemm": {
+    "hipblas": {
+     "dtype": "fp32",
+     "git_sha": "9b04e5a",
+     "date": "2026-11-18",
+     "source": "results/gemm_hipblas_NVIDIA_GeForce_RTX_4060.json",
+     "points": [
+      {
+       "n": 512,
+       "gflops": 6721.6,
+       "ms": 0.0399
+      },
+      {
+       "n": 1024,
+       "gflops": 6808.9,
+       "ms": 0.3154
+      },
+      {
+       "n": 2048,
+       "gflops": 8188.0,
+       "ms": 2.0982
+      },
+      {
+       "n": 4096,
+       "gflops": 8032.2,
+       "ms": 17.111
+      },
+      {
+       "n": 8192,
+       "gflops": 7819.9,
+       "ms": 140.6044
+      }
+     ]
+    },
+    "hipblas_fp16": {
+     "dtype": "fp16",
+     "git_sha": "9b04e5a",
+     "date": "2026-11-18",
+     "source": "results/gemm_hipblas_fp16_NVIDIA_GeForce_RTX_4060.json",
+     "points": [
+      {
+       "n": 512,
+       "gflops": 16384,
+       "ms": 0.0164
+      },
+      {
+       "n": 1024,
+       "gflops": 36157.8,
+       "ms": 0.0594
+      },
+      {
+       "n": 2048,
+       "gflops": 44034.7,
+       "ms": 0.3901
+      },
+      {
+       "n": 4096,
+       "gflops": 42608.8,
+       "ms": 3.2256
+      },
+      {
+       "n": 8192,
+       "gflops": 48022.8,
+       "ms": 22.8956
+      }
+     ]
+    },
+    "v0": {
+     "dtype": "fp32",
+     "git_sha": "9b04e5a",
+     "date": "2026-11-18",
+     "source": "results/gemm_v0_NVIDIA_GeForce_RTX_4060.json",
+     "points": [
+      {
+       "n": 512,
+       "gflops": 220.1,
+       "ms": 1.2196
+      },
+      {
+       "n": 1024,
+       "gflops": 243.8,
+       "ms": 8.8084
+      },
+      {
+       "n": 2048,
+       "gflops": 241.9,
+       "ms": 71.0072
+      },
+      {
+       "n": 4096,
+       "gflops": 244.2,
+       "ms": 562.7556
+      },
+      {
+       "n": 8192,
+       "gflops": 243.2,
+       "ms": 4521.7954
+      }
+     ]
+    },
+    "v0_fp16": {
+     "dtype": "fp16",
+     "git_sha": "9b04e5a",
+     "date": "2026-11-18",
+     "source": "results/gemm_v0_fp16_NVIDIA_GeForce_RTX_4060.json",
+     "points": [
+      {
+       "n": 512,
+       "gflops": 235.6,
+       "ms": 1.1396
+      },
+      {
+       "n": 1024,
+       "gflops": 238.4,
+       "ms": 9.0092
+      },
+      {
+       "n": 2048,
+       "gflops": 236.7,
+       "ms": 72.575
+      },
+      {
+       "n": 4096,
+       "gflops": 235.3,
+       "ms": 584.0865
+      },
+      {
+       "n": 8192,
+       "gflops": 237.9,
+       "ms": 4622.2563
+      }
+     ]
+    },
+    "v1": {
+     "dtype": "fp32",
+     "git_sha": "9b04e5a",
+     "date": "2026-11-18",
+     "source": "results/gemm_v1_NVIDIA_GeForce_RTX_4060.json",
+     "points": [
+      {
+       "n": 512,
+       "gflops": 1004.4,
+       "ms": 0.2673
+      },
+      {
+       "n": 1024,
+       "gflops": 1011.7,
+       "ms": 2.1228
+      },
+      {
+       "n": 2048,
+       "gflops": 1011.5,
+       "ms": 16.9841
+      },
+      {
+       "n": 4096,
+       "gflops": 905.0,
+       "ms": 151.8715
+      },
+      {
+       "n": 8192,
+       "gflops": 912.4,
+       "ms": 1205.0166
+      }
+     ]
+    },
+    "v2": {
+     "dtype": "fp32",
+     "git_sha": "9b04e5a",
+     "date": "2026-11-18",
+     "source": "results/gemm_v2_NVIDIA_GeForce_RTX_4060.json",
+     "points": [
+      {
+       "n": 512,
+       "gflops": 1230.7,
+       "ms": 0.2181
+      },
+      {
+       "n": 1024,
+       "gflops": 1292.2,
+       "ms": 1.6619
+      },
+      {
+       "n": 2048,
+       "gflops": 1291.4,
+       "ms": 13.3028
+      },
+      {
+       "n": 4096,
+       "gflops": 1142.0,
+       "ms": 120.3538
+      },
+      {
+       "n": 8192,
+       "gflops": 1123.8,
+       "ms": 978.4115
+      }
+     ]
+    },
+    "v3": {
+     "dtype": "fp32",
+     "git_sha": "9b04e5a",
+     "date": "2026-11-18",
+     "source": "results/gemm_v3_NVIDIA_GeForce_RTX_4060.json",
+     "points": [
+      {
+       "n": 512,
+       "gflops": 2598.7,
+       "ms": 0.1033
+      },
+      {
+       "n": 1024,
+       "gflops": 3266.6,
+       "ms": 0.6574
+      },
+      {
+       "n": 2048,
+       "gflops": 3358.1,
+       "ms": 5.1159
+      },
+      {
+       "n": 4096,
+       "gflops": 3162.4,
+       "ms": 43.4606
+      },
+      {
+       "n": 8192,
+       "gflops": 3147.8,
+       "ms": 349.2997
+      }
+     ]
+    },
+    "v4": {
+     "dtype": "fp32",
+     "git_sha": "9b04e5a",
+     "date": "2026-11-18",
+     "source": "results/gemm_v4_NVIDIA_GeForce_RTX_4060.json",
+     "points": [
+      {
+       "n": 512,
+       "gflops": 5461.3,
+       "ms": 0.0492
+      },
+      {
+       "n": 1024,
+       "gflops": 6700.2,
+       "ms": 0.3205
+      },
+      {
+       "n": 2048,
+       "gflops": 5787.2,
+       "ms": 2.9686
+      },
+      {
+       "n": 4096,
+       "gflops": 5838.9,
+       "ms": 23.5387
+      },
+      {
+       "n": 8192,
+       "gflops": 5615.0,
+       "ms": 195.8152
+      }
+     ]
+    },
+    "v4_fp16": {
+     "dtype": "fp16",
+     "git_sha": "9b04e5a",
+     "date": "2026-11-18",
+     "source": "results/gemm_v4_fp16_NVIDIA_GeForce_RTX_4060.json",
+     "points": [
+      {
+       "n": 512,
+       "gflops": 4040.8,
+       "ms": 0.0664
+      },
+      {
+       "n": 1024,
+       "gflops": 4995.1,
+       "ms": 0.4299
+      },
+      {
+       "n": 2048,
+       "gflops": 4788.0,
+       "ms": 3.5881
+      },
+      {
+       "n": 4096,
+       "gflops": 4591.3,
+       "ms": 29.9346
+      },
+      {
+       "n": 8192,
+       "gflops": 4601.8,
+       "ms": 238.9298
+      }
+     ]
+    },
+    "v5": {
+     "dtype": "fp16",
+     "git_sha": "9b04e5a",
+     "date": "2026-11-18",
+     "source": "results/gemm_v5_NVIDIA_GeForce_RTX_4060.json",
+     "points": [
+      {
+       "n": 512,
+       "gflops": 13797.1,
+       "ms": 0.0195
+      },
+      {
+       "n": 1024,
+       "gflops": 23045.6,
+       "ms": 0.0932
+      },
+      {
+       "n": 2048,
+       "gflops": 21788.6,
+       "ms": 0.7885
+      },
+      {
+       "n": 4096,
+       "gflops": 14820.9,
+       "ms": 9.2733
+      },
+      {
+       "n": 8192,
+       "gflops": 12381.9,
+       "ms": 88.8003
+      }
+     ]
+    }
+   },
+   "llm": {
+    "hip_fused": {
+     "decode_tok_per_s": 295.418,
+     "ttft_ms": 6.791,
+     "prefill_ms": 6.595,
+     "prompt_tokens": 86,
+     "gen_tokens": 128,
+     "source": "results/llm_NVIDIA_GeForce_RTX_4060.json"
+    },
+    "pytorch": {
+     "decode_tok_per_s": 83.257,
+     "ttft_ms": 11.9404,
+     "prefill_ms": 11.8216,
+     "prompt_tokens": 86,
+     "gen_tokens": 128,
+     "source": "results/llm_pytorch_NVIDIA_GeForce_RTX_4060.json"
+    },
+    "hip_naive": {
+     "decode_tok_per_s": 276.131,
+     "ttft_ms": 6.631,
+     "prefill_ms": 6.44,
+     "prompt_tokens": 86,
+     "gen_tokens": 128,
+     "source": "results/llm_variants/llm_naive_NVIDIA_GeForce_RTX_4060.json"
+    },
+    "hip_nocache": {
+     "decode_tok_per_s": 105.119,
+     "ttft_ms": 6.716,
+     "prefill_ms": 6.52,
+     "prompt_tokens": 86,
+     "gen_tokens": 128,
+     "source": "results/llm_variants/llm_nocache_NVIDIA_GeForce_RTX_4060.json"
+    }
+   },
+   "h3": {
+    "schema_version": 1,
+    "bench": "h3",
+    "device": "NVIDIA GeForce RTX 4060",
+    "platform": "nvidia",
+    "date": "2026-11-18",
+    "prompt": "The capital of France is",
+    "prefill_logits": {
+     "rows": 5,
+     "max_abs_err": 0.0003166,
+     "argmax_agreement": "5/5",
+     "tol": 0.01
+    },
+    "greedy_32": {
+     "rows": 32,
+     "max_abs_err": 0.0002441,
+     "argmax_agreement": "32/32",
+     "tol": 0.01
+    },
+    "commands": [
+     "tools/export_reference_logits.py ... --greedy-ref --max-new-tokens 32",
+     "gpt2 --dump-mode all / last",
+     "tools/compare_logits.py --tol 1e-2"
+    ],
+    "source": "results/h3_NVIDIA_GeForce_RTX_4060.json"
+   },
+   "noise": {
+    "schema_version": 1,
+    "bench": "noise",
+    "device": "NVIDIA GeForce RTX 4060",
+    "date": "2026-11-18",
+    "gemm_v4_fp32_4096_gflops_runs": [
+     5794.49,
+     5948.61,
+     5838.29
+    ],
+    "llm_fused_decode_tok_per_s_runs": [
+     295.418,
+     302.704,
+     289.482
+    ],
+    "llm_naive_decode_tok_per_s_runs": [
+     276.131,
+     272.951,
+     295.525
+    ],
+    "note": "three back-to-back runs, RTX 4060, WSL2/Docker; results/llm_*.json hold the median run",
+    "source": "results/noise_NVIDIA_GeForce_RTX_4060.json"
+   }
+  }
+ }
+}

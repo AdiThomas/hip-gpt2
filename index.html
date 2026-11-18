@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hip-gpt2: GEMM to GPT-2</title>
+<meta name="description" content="Six hand-written HIP matrix-multiply kernels, from naive to tensor cores, and a C++/HIP GPT-2 engine built on them. Every number measured on an RTX 4060.">
+<meta name="author" content="Aditya Thomas">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #6f6e69;
+    --grid: #e1e0d9; --border: rgba(11,11,11,0.10); --accent: #2a78d6; --code-bg: #f0efea;
+    --s-v0: #2a78d6; --s-v1: #eb6834; --s-v2: #1baf7a; --s-v3: #eda100; --s-v4: #e87ba4; --s-v5: #6250d6;
+    --s-ref: #898781; --s-hip: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #9a9890;
+      --grid: #2c2c2a; --border: rgba(255,255,255,0.10); --accent: #3987e5; --code-bg: #242422;
+      --s-v0: #3987e5; --s-v1: #d95926; --s-v2: #199e70; --s-v3: #c98500; --s-v4: #d55181; --s-v5: #9085e9;
+      --s-ref: #898781; --s-hip: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #9a9890;
+    --grid: #2c2c2a; --border: rgba(255,255,255,0.10); --accent: #3987e5; --code-bg: #242422;
+    --s-v0: #3987e5; --s-v1: #d95926; --s-v2: #199e70; --s-v3: #c98500; --s-v4: #d55181; --s-v5: #9085e9;
+    --s-ref: #898781; --s-hip: #3987e5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+         font: 17px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 780px; margin: 0 auto; padding: 48px 16px 96px; }
+  a { color: var(--accent); }
+  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.02em; }
+  h2 { font-size: 24px; line-height: 1.25; margin: 56px 0 12px; letter-spacing: -0.01em; }
+  h3 { font-size: 18px; margin: 28px 0 6px; }
+  p { margin: 0 0 16px; }
+  .lede { font-size: 19px; color: var(--ink2); margin-bottom: 16px; }
+  .byline { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+  .byline a { color: var(--muted); }
+  code { font: 0.88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--code-bg);
+         padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 14px; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  .note { border-left: 3px solid var(--grid); padding: 2px 0 2px 14px; color: var(--ink2); font-size: 15px; }
+  .hyp { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+         border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; margin-right: 4px; white-space: nowrap; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 8px 0 8px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .tile .label { font-size: 13px; color: var(--ink2); }
+  .tile .value { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; margin: 4px 0 2px; }
+  .tile .value small { font-size: 15px; font-weight: 500; color: var(--ink2); }
+  .tile .delta { font-size: 13px; color: var(--muted); }
+
+  figure { margin: 24px 0 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 16px 12px; }
+  figure .head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; align-items: flex-start; }
+  figure h4 { margin: 0; font-size: 15px; font-weight: 600; }
+  figure .sub { margin: 2px 0 0; font-size: 13px; color: var(--ink2); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; flex-shrink: 0; }
+  .seg button { font: 13px system-ui, sans-serif; background: none; color: var(--ink2); border: 0; padding: 5px 11px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0 0; font-size: 13px; color: var(--ink2); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .legend i.sq { height: 10px; width: 10px; border-radius: 3px; }
+  .chart { position: relative; margin-top: 8px; }
+  .chart svg { display: block; width: 100%; overflow: visible; }
+  .chart text { font: 12px system-ui, sans-serif; fill: var(--ink2); }
+  .chart text.val { fill: var(--ink); font-weight: 600; }
+  .chart text.mut { fill: var(--muted); }
+  .chart .gridl { stroke: var(--grid); stroke-width: 1; }
+  figcaption { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  figcaption button { font: 12px system-ui, sans-serif; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 10px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--grid); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--ink2); font-weight: 600; }
+  .tablewrap { overflow-x: auto; }
+
+  #tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); color: var(--ink);
+         border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.45;
+         box-shadow: 0 4px 16px rgba(0,0,0,.12); max-width: 280px; opacity: 0; transition: opacity .08s; }
+  #tip b { font-weight: 600; }
+  #tip .row { display: flex; align-items: center; gap: 7px; justify-content: space-between; }
+  #tip .row span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+  #tip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  #tip .m { color: var(--muted); }
+
+  .stages { display: grid; gap: 10px; margin: 16px 0; }
+  .stage { display: grid; grid-template-columns: 54px 1fr; gap: 12px; align-items: start; background: var(--surface);
+           border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .stage .tag { font: 600 15px ui-monospace, Menlo, Consolas, monospace; display: flex; align-items: center; gap: 6px; }
+  .stage .tag i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .stage p { margin: 0; font-size: 15px; }
+  .stage .num { font-weight: 600; font-variant-numeric: tabular-nums; }
+  #err { color: var(--ink2); }
+  footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--grid); font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Hand-writing GPU matrix multiply in HIP, then running GPT-2 on it</h1>
+  <p class="lede">Six matrix-multiply kernels, from a naive loop to tensor-core instructions, each measured against the vendor library. Then a GPT-2 inference engine in C++/HIP built on them, with no PyTorch at inference time.</p>
+  <p class="byline">Aditya Thomas · November 2026 · <a href="https://github.com/AdiThomas/hip-gpt2">Code on GitHub</a> · <a href="perf.html">Performance history</a><br>
+    Part 1: measured on an NVIDIA RTX 4060 (<span data-b="stack"></span>). Part 2 adds AMD Instinct MI300X.</p>
+
+  <p id="err" hidden>The results file did not load. If you opened this file directly from disk, serve the <code>site/</code> folder over HTTP instead.</p>
+
+  <div class="tiles" aria-label="Headline results">
+    <div class="tile"><div class="label">Best hand-written FP32 kernel</div>
+      <div class="value"><span data-b="g:v4:4096"></span> <small>GFLOP/s</small></div>
+      <div class="delta"><span data-b="pct:v4:hipblas:4096"></span> of hipBLAS at 4096</div></div>
+    <div class="tile"><div class="label">Tensor-core FP16 kernel (v5)</div>
+      <div class="value"><span data-b="t:v5:4096"></span> <small>TFLOP/s</small></div>
+      <div class="delta"><span data-b="x:v5:v4_fp16:4096"></span> the scalar FP16 kernel</div></div>
+    <div class="tile"><div class="label">GPT-2 small, decode</div>
+      <div class="value"><span data-b="l:hip_fused:decode_tok_per_s"></span> <small>tokens/s</small></div>
+      <div class="delta"><span data-b="lx:hip_fused:pytorch"></span> PyTorch eager (<span data-b="l:pytorch:decode_tok_per_s"></span>)</div></div>
+    <div class="tile"><div class="label">Matches PyTorch</div>
+      <div class="value"><span data-b="h3err"></span></div>
+      <div class="delta">max logit error · <span data-b="h3greedy"></span> greedy tokens identical</div></div>
+  </div>
+
+  <h2>The problem</h2>
+  <p>A matrix multiply <code>C = A × B</code> of two N × N matrices costs <code>2N³</code> floating-point operations: <span data-b="flops4096"></span> for N = 4096. Almost everything in a transformer is one. A GPU can do arithmetic far faster than it can fetch numbers from its memory, so the whole game is how many times each number gets used once it's on the chip.</p>
+  <p>The yardstick is hipBLAS, the vendor library (on NVIDIA it calls cuBLAS). Every kernel is first checked against a double-precision CPU reference on awkward shapes (1×1×1, primes, sizes that don't divide the tile). Only then is it timed: the median of 100 launches.</p>
+
+  <figure id="f-ladder">
+    <div class="head">
+      <div><h4>The FP32 ladder</h4><p class="sub">Throughput by kernel for square N × N matrices. Higher is better.</p></div>
+      <div class="seg" role="group" aria-label="Matrix size" id="ladder-size"></div>
+    </div>
+    <div class="chart" id="c-ladder"></div>
+    <figcaption><span>RTX 4060, FP32. Source: <code>results/gemm_*.json</code></span><button data-table="ladder">Show table</button></figcaption>
+    <div class="tablewrap" id="t-ladder" hidden></div>
+  </figure>
+
+  <h2>Climbing the ladder</h2>
+  <p>Each stage changes one idea. The numbers are measured at N = 4096. The "why" behind each one is what I expected from the design: <span class="hyp">hypothesis</span> marks claims I haven't yet confirmed with profiler counters.</p>
+  <div class="stages">
+    <div class="stage"><div class="tag"><i style="background:var(--s-v0)"></i>v0</div>
+      <p><b>One thread per output.</b> Each thread loops over K, reading A and B straight from memory: 8 bytes fetched for every 2 FLOPs. Neighbouring threads walk down rows, so their reads land far apart. <span class="num" data-b="g:v0:4096"></span> GFLOP/s, <span class="num" data-b="pct:v0:hipblas:4096"></span> of hipBLAS.</p></div>
+    <div class="stage"><div class="tag"><i style="background:var(--s-v1)"></i>v1</div>
+      <p><b>Coalescing.</b> Same loop. I only changed which thread computes which element, so neighbouring threads read neighbouring addresses and the hardware can serve a whole group's loads in a few wide transactions. <span class="num" data-b="x:v1:v0:4096"></span> faster (<span class="num" data-b="g:v1:4096"></span>).</p></div>
+    <div class="stage"><div class="tag"><i style="background:var(--s-v2)"></i>v2</div>
+      <p><b>Shared-memory tiling.</b> A 32 × 32 block loads tiles of A and B into on-chip shared memory (LDS) once and reuses each value 32 times. Only <span class="num" data-b="x:v2:v1:4096"></span>, much less than the cut in memory traffic suggests. <span class="hyp">hypothesis</span> The 4060's caches were already catching much of v1's reuse, and v2 now pays two LDS reads per multiply-add.</p></div>
+    <div class="stage"><div class="tag"><i style="background:var(--s-v3)"></i>v3</div>
+      <p><b>Register blocking.</b> Each thread computes a 4 × 4 patch, keeping 16 running sums in registers, so every LDS read feeds 4 multiply-adds instead of 1. <span class="num" data-b="x:v3:v2:4096"></span> (<span class="num" data-b="g:v3:4096"></span>). This is the biggest jump after coalescing.</p></div>
+    <div class="stage"><div class="tag"><i style="background:var(--s-v4)"></i>v4</div>
+      <p><b>Vector loads and double buffering.</b> 16-byte <code>float4</code> loads when the pointers are aligned (the launcher checks and picks one of four variants), and the next tile is fetched while the current one is computed. <span class="num" data-b="x:v4:v3:4096"></span> more, reaching <span class="num" data-b="g:v4:4096"></span>: <span class="num" data-b="pct:v4:hipblas:4096"></span> of hipBLAS, and <span class="num" data-b="pct:v4:hipblas:1024"></span> at N = 1024.</p></div>
+  </div>
+  <p>Overall that's <span data-b="x:v4:v0:4096"></span> from v0 to v4. v4 still uses only about <span data-b="peakpct"></span> of the card's <span data-b="fp32peak"></span> TFLOPS FP32 datasheet peak. hipBLAS, at <span data-b="g:hipblas:4096"></span>, shows how much headroom is left.</p>
+
+  <figure id="f-sizes">
+    <div class="head">
+      <div><h4>Throughput across matrix sizes</h4><p class="sub">GFLOP/s, log scale. Hover for values.</p></div>
+      <div class="seg" role="group" aria-label="Precision" id="sizes-dtype"></div>
+    </div>
+    <div class="legend" id="l-sizes"></div>
+    <div class="chart" id="c-sizes"></div>
+    <figcaption><span id="cap-sizes"></span><button data-table="sizes">Show table</button></figcaption>
+    <div class="tablewrap" id="t-sizes" hidden></div>
+  </figure>
+
+  <h2>v5: tensor cores</h2>
+  <p>Modern GPUs have matrix units that do a whole 16 × 16 × 16 block of multiply-adds in one instruction: MFMA on AMD Instinct, WMMA on AMD RDNA3, and tensor cores (<code>nvcuda::wmma</code>) on NVIDIA. v5 keeps v4's FP16 data movement exactly and swaps only the inner product. On the 4060 that means the <code>nvcuda::wmma</code> path. It compiled and passed every correctness shape on the first try.</p>
+  <p>It reaches <span data-b="t:v5:1024"></span> TFLOP/s at N = 1024 (<span data-b="x:v5:v4_fp16:1024"></span> the scalar FP16 kernel) but falls to <span data-b="t:v5:8192"></span> at 8192, while hipBLAS keeps climbing. <span class="hyp">hypothesis</span> The drop starts roughly where the matrices outgrow the card's 24 MB L2 cache. From there, v5's 64 × 64 tiles and strided B-fragment reads from LDS can't hide main-memory latency. That's the first thing I'll check with Nsight Compute. Note that hipBLAS FP16 writes FP16 output and may accumulate in FP16. It's a speed reference, not a like-for-like comparison.</p>
+
+  <h2>From kernels to a language model</h2>
+  <p>GPT-2 small (124M parameters, 12 layers) is small enough to read in an afternoon and real enough to expose everything that matters. The engine is C++/HIP: a byte-level BPE tokenizer written from scratch (checked token for token against OpenAI's), a safetensors loader, kernels for embedding, layer norm, GELU, attention and the LM head, and a KV-cache.</p>
+  <p>Generation has two phases with opposite characters:</p>
+  <ul>
+    <li><b>Prefill</b> processes the whole prompt at once, so the linear layers are real matrix multiplies and use the v4 kernel. 86 prompt tokens take <span data-b="l:hip_fused:prefill_ms:1"></span> ms.</li>
+    <li><b>Decode</b> makes one token at a time. Every weight is read once per token for 2 FLOPs per 4 bytes, so no amount of tiling helps. The limit is streaming ~500 MB of weights per token. At the 4060's <span data-b="bw"></span> GB/s (datasheet), that caps decode at about <span data-b="ceil"></span> tokens/s.</li>
+  </ul>
+
+  <figure id="f-decode">
+    <div class="head"><div><h4>GPT-2 decode speed</h4><p class="sub">Tokens per second, 128 greedy tokens after an 86-token prompt. Whiskers show the range over 3 runs.</p></div></div>
+    <div class="chart" id="c-decode"></div>
+    <figcaption><span>RTX 4060, FP32 weights. Source: <code>results/llm_*.json</code>, <code>results/noise_*.json</code></span><button data-table="decode">Show table</button></figcaption>
+    <div class="tablewrap" id="t-decode" hidden></div>
+  </figure>
+
+  <p>The engine decodes at <span data-b="pctceil:hip_fused"></span> of that bandwidth ceiling, <span data-b="lx:hip_fused:pytorch"></span> the speed of Hugging Face GPT-2 in plain PyTorch eager mode on the same GPU (FP32, with its KV cache). PyTorch here pays Python and kernel-launch overhead on every one of its small ops. <code>torch.compile</code> or CUDA graphs would close much of that gap, so read this as "beats the default path", not "beats PyTorch". The KV-cache matters a lot: without it, every step recomputes the whole sequence and decode falls to <span data-b="l:hip_nocache:decode_tok_per_s"></span> tokens/s.</p>
+  <p>One prediction didn't hold up. I wrote attention twice: a naive three-kernel version and a fused decode kernel that keeps the scores in on-chip memory. Over three runs each, fused averaged <span data-b="mean:llm_fused"></span> tokens/s and naive <span data-b="mean:llm_naive"></span>, and the ranges overlap. At a ~200-token context, attention is a small slice of each decode step next to reading the weights, so fusing it buys nothing measurable yet. <span class="hyp">hypothesis</span> It should start to matter at long contexts.</p>
+
+  <h2>Is it right?</h2>
+  <p>Fast and wrong is worthless, so correctness gates everything. On the CPU (through the HIP-CPU runtime, so it also runs in free CI), every kernel is checked against a reference on awkward shapes, the tokenizer against OpenAI's, and the whole engine against a float64 NumPy implementation of a tiny random GPT-2. On the GPU, the test sweep adds shapes up to 2049 × 1023 × 515.</p>
+  <p>Against PyTorch on the real GPT-2 weights, the largest logit difference is <span data-b="h3err"></span> (tolerance 1e-2), and the greedy tokens are identical for <span data-b="h3greedy"></span> steps. Getting there found one real bug, and it wasn't in the C++. The script that exports the weights skipped any tensor whose name ends in <code>attn.bias</code>, meaning to drop an internal mask buffer. That also matched <code>attn.c_attn.bias</code>, the real attention bias in every layer, which silently disappeared. Matching on <code>.attn.bias</code> with the leading dot fixed it.</p>
+
+  <h2>Keeping it honest: performance CI</h2>
+  <p>A benchmark nobody re-runs goes stale. On every push, GitHub Actions builds and tests on the CPU backend and compile-checks the ROCm build. A self-hosted GPU job reruns the benchmarks and fails the build if any kernel gets more than 7% slower than the committed baseline. On the 4060, the spread between back-to-back runs of v4 at 4096 was about <span data-b="noise"></span>%, so 7% leaves room for noise. Each run's results go to a <a href="perf.html">history chart</a>.</p>
+
+  <h2>What's next</h2>
+  <ul>
+    <li><b>AMD Instinct MI300X.</b> Run the same code on <code>gfx942</code>, where v5 uses real MFMA instructions, with profiles from <code>rocprof-compute</code>. That's part 2.</li>
+    <li><b>Profile every stage</b> and replace each <span class="hyp">hypothesis</span> above with what the counters say.</li>
+    <li><b>Faster decode:</b> split-K matrix-vector kernels for more parallelism, and FP16 or INT8 weights, which directly shrink the ~500 MB read per token.</li>
+    <li><b>A better v5:</b> transposed B in LDS, larger tiles and deeper pipelining.</li>
+  </ul>
+
+  <h2>How this was built</h2>
+  <p>I built this project with AI coding agents (Claude Code) writing much of the code under my direction. Every number on this page comes from a JSON file in the repo, produced by running the code on my own RTX 4060. Reproduce them with:</p>
+  <pre><code>cmake -S . -B build -DCMAKE_HIP_PLATFORM=nvidia -DCMAKE_HIP_ARCHITECTURES=89
+cmake --build build -j &amp;&amp; ctest --test-dir build
+./build/gemm_bench --kernel all --out results
+./build/gpt2 --model models/gpt2 --prompt "Once upon a time" --max-new-tokens 64</code></pre>
+  <p>Windows users can run the whole thing in Docker with GPU passthrough. <a href="https://github.com/AdiThomas/hip-gpt2/blob/main/docs/SETUP.md">docs/SETUP.md</a> has the commands.</p>
+
+  <footer>Aditya Thomas · <a href="https://github.com/AdiThomas/hip-gpt2">github.com/AdiThomas/hip-gpt2</a> · MIT licensed · Data: <a href="data/results.json">data/results.json</a></footer>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const SIZES = [512, 1024, 2048, 4096, 8192];
+  const FP32 = [["v0", "v0 naive"], ["v1", "v1 coalesced"], ["v2", "v2 LDS tiled"], ["v3", "v3 register blocked"], ["v4", "v4 float4 + double buffer"], ["hipblas", "hipBLAS"]];
+  const FP16 = [["v0_fp16", "v0 FP16"], ["v4_fp16", "v4 FP16"], ["v5", "v5 tensor cores"], ["hipblas_fp16", "hipBLAS FP16"]];
+  const COLOR = { v0: "--s-v0", v1: "--s-v1", v2: "--s-v2", v3: "--s-v3", v4: "--s-v4", v5: "--s-v5", hipblas: "--s-ref",
+                  v0_fp16: "--s-v0", v4_fp16: "--s-v4", hipblas_fp16: "--s-ref" };
+  const col = k => `var(${COLOR[k]})`;
+  const nf = (x, d = 0) => x == null ? "–" : x.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const compact = x => x >= 10000 ? nf(x / 1000, x % 1000 ? 1 : 0) + "K" : nf(x);
+  let D, state = { size: 4096, dtype: "fp32" };
+
+  const gf = (k, n) => { const s = D.gemm[k]; const p = s && s.points.find(q => q.n === n); return p ? p.gflops : null; };
+  const L = (k, f) => D.llm[k] && D.llm[k][f];
+  const ceil = () => D.spec.bw_gbs * 1e9 / 500e6;
+  const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+
+  function bind() {
+    const B = {
+      stack: () => D.spec.stack, flops4096: () => nf(2 * 4096 ** 3 / 1e9) + " billion",
+      h3err: () => D.h3 ? Math.max(D.h3.prefill_logits.max_abs_err, D.h3.greedy_32.max_abs_err).toExponential(1) : "–",
+      h3greedy: () => D.h3 ? D.h3.greedy_32.argmax_agreement : "–",
+      bw: () => D.spec.bw_gbs, ceil: () => "~" + nf(ceil()), fp32peak: () => D.spec.fp32_tflops,
+      peakpct: () => nf(100 * gf("v4", 4096) / (D.spec.fp32_tflops * 1000)) + "%",
+      noise: () => { const r = D.noise.gemm_v4_fp32_4096_gflops_runs; return nf(100 * (Math.max(...r) - Math.min(...r)) / mean(r)); },
+    };
+    document.querySelectorAll("[data-b]").forEach(el => {
+      const [t, a, b, c] = el.dataset.b.split(":");
+      let v;
+      try {
+        if (B[t]) v = B[t]();
+        else if (t === "g") v = nf(gf(a, +b));
+        else if (t === "t") v = nf(gf(a, +b) / 1000, 1);
+        else if (t === "pct") v = nf(100 * gf(a, +c) / gf(b, +c)) + "%";
+        else if (t === "x") v = nf(gf(a, +c) / gf(b, +c), 1) + "×";
+        else if (t === "l") v = nf(L(a, b), b ? +(c || 0) : 0);
+        else if (t === "lx") v = nf(L(a, "decode_tok_per_s") / L(b, "decode_tok_per_s"), 1) + "×";
+        else if (t === "pctceil") v = nf(100 * L(a, "decode_tok_per_s") / ceil()) + "%";
+        else if (t === "mean") v = nf(mean(D.noise[a + "_decode_tok_per_s_runs"]));
+      } catch (e) { v = "–"; }
+      el.textContent = v ?? "–";
+    });
+  }
+
+  function el(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function hbarPath(x0, y, w, h) {
+    const r = Math.min(4, w / 2, h / 2);
+    if (w <= 0) return "";
+    return `M${x0},${y}h${w - r}a${r},${r} 0 0 1 ${r},${r}v${h - 2 * r}a${r},${r} 0 0 1 ${-r},${r}h${-(w - r)}z`;
+  }
+  function niceTicks(max, count) {
+    const step0 = max / count, mag = 10 ** Math.floor(Math.log10(step0));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= step0);
+    const out = [0]; while (out[out.length - 1] < max - 1e-9) out.push(out[out.length - 1] + step); return out;
+  }
+
+  const tip = document.getElementById("tip");
+  function showTip(html, ev) {
+    tip.innerHTML = html; tip.style.opacity = 1;
+    const pad = 14, r = tip.getBoundingClientRect();
+    let x = ev.clientX + pad, y = ev.clientY + pad;
+    if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - pad;
+    if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - pad;
+    tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+  }
+  const hideTip = () => { tip.style.opacity = 0; };
+  const sw = c => `<i style="background:${c}"></i>`;
+
+  // ---------- Ladder (horizontal bars) ----------
+  function drawLadder() {
+    const host = document.getElementById("c-ladder"); host.innerHTML = "";
+    const W = host.clientWidth, narrow = W < 520;
+    const labelW = narrow ? 92 : 170, right = 92, rowH = 38, barH = 20, top = 6, axisH = 22;
+    const H = top + FP32.length * rowH + axisH;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img",
+      "aria-label": `FP32 GEMM throughput at N=${state.size}` }, host);
+    const max = Math.max(...SIZES.map(n => gf("hipblas", n) || 0), ...SIZES.map(n => gf("v4", n) || 0));
+    const ticks = niceTicks(max, narrow ? 3 : 4), xmax = ticks[ticks.length - 1];
+    const plotW = W - labelW - right, X = v => labelW + v / xmax * plotW;
+    ticks.forEach(t => {
+      el("line", { x1: X(t), x2: X(t), y1: top, y2: H - axisH, class: "gridl" }, svg);
+      el("text", { x: X(t), y: H - 6, "text-anchor": "middle", class: "mut" }, svg, compact(t));
+    });
+    const base = gf("hipblas", state.size);
+    FP32.forEach(([k, name], i) => {
+      const y = top + i * rowH, v = gf(k, state.size); if (v == null) return;
+      const short = narrow ? name.split(" ")[0] : name;
+      el("text", { x: labelW - 10, y: y + rowH / 2 + 4, "text-anchor": "end", class: k === "hipblas" ? "mut" : "" }, svg, short);
+      el("path", { d: hbarPath(X(0), y + (rowH - barH) / 2, X(v) - X(0), barH), fill: col(k) }, svg);
+      const lab = el("text", { x: X(v) + 8, y: y + rowH / 2 + 4, class: "val" }, svg, nf(v));
+      if (k !== "hipblas") el("tspan", { class: "mut", dx: 6 }, lab, nf(100 * v / base) + "%");
+      const hit = el("rect", { x: 0, y, width: W, height: rowH, fill: "transparent" }, svg);
+      const prev = { v1: "v0", v2: "v1", v3: "v2", v4: "v3" }[k];
+      const html = `<b>${name}</b> · N = ${state.size}<br>${nf(v)} GFLOP/s` +
+        (k !== "hipblas" ? `<br><span class="m">${nf(100 * v / base)}% of hipBLAS</span>` : "") +
+        (prev ? `<br><span class="m">${nf(v / gf(prev, state.size), 1)}× over ${prev}</span>` : "");
+      hit.addEventListener("pointermove", e => showTip(html, e)); hit.addEventListener("pointerleave", hideTip);
+    });
+    el("line", { x1: X(0), x2: X(0), y1: top, y2: H - axisH, stroke: "var(--muted)", "stroke-width": 1 }, svg);
+  }
+
+  // ---------- Sizes (lines, log y) ----------
+  function drawSizes() {
+    const series = state.dtype === "fp32" ? FP32 : FP16;
+    const host = document.getElementById("c-sizes"); host.innerHTML = "";
+    document.getElementById("l-sizes").innerHTML = series.map(([k, n]) => `<span><i style="background:${col(k)}"></i>${n}</span>`).join("");
+    document.getElementById("cap-sizes").innerHTML = `RTX 4060, ${state.dtype === "fp32" ? "FP32" : "FP16 inputs"}. Source: <code>results/gemm_*.json</code>`;
+    const W = host.clientWidth, narrow = W < 520, direct = series.length <= 4;
+    const left = 46, right = direct ? (narrow ? 64 : 120) : 16, top = 12, bottom = 28, H = narrow ? 260 : 320;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": "GFLOP/s by matrix size" }, host);
+    const vals = series.flatMap(([k]) => SIZES.map(n => gf(k, n)).filter(v => v));
+    const lo = 10 ** Math.floor(Math.log10(Math.min(...vals))), hi = 10 ** Math.ceil(Math.log10(Math.max(...vals)));
+    const X = i => left + i * (W - left - right) / (SIZES.length - 1);
+    const Y = v => top + (Math.log10(hi) - Math.log10(v)) / (Math.log10(hi) - Math.log10(lo)) * (H - top - bottom);
+    for (let t = lo; t <= hi; t *= 10) {
+      el("line", { x1: left, x2: W - right, y1: Y(t), y2: Y(t), class: "gridl" }, svg);
+      el("text", { x: left - 8, y: Y(t) + 4, "text-anchor": "end", class: "mut" }, svg, compact(t));
+    }
+    SIZES.forEach((n, i) => el("text", { x: X(i), y: H - 8, "text-anchor": "middle", class: "mut" }, svg, nf(n)));
+    series.forEach(([k, name]) => {
+      const pts = SIZES.map((n, i) => [i, gf(k, n)]).filter(p => p[1]);
+      el("path", { d: pts.map((p, j) => (j ? "L" : "M") + X(p[0]) + "," + Y(p[1])).join(""), fill: "none",
+                   stroke: col(k), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+      pts.forEach(p => el("circle", { cx: X(p[0]), cy: Y(p[1]), r: 4, fill: col(k), stroke: "var(--surface)", "stroke-width": 2 }, svg));
+      if (direct) {
+        const last = pts[pts.length - 1];
+        el("text", { x: X(last[0]) + 10, y: Y(last[1]) + 4, class: "val" }, svg, narrow ? compact(last[1]) : `${compact(last[1])}  `)
+          .appendChild(Object.assign(document.createElementNS(NS, "tspan"), { textContent: narrow ? "" : name.replace(" FP16", "").replace(" tensor cores", ""), }))
+          .setAttribute("class", "mut");
+      }
+    });
+    const cross = el("line", { y1: top, y2: H - bottom, stroke: "var(--muted)", "stroke-width": 1, opacity: 0 }, svg);
+    const hit = el("rect", { x: left - 10, y: 0, width: W - left - right + 20, height: H, fill: "transparent" }, svg);
+    hit.addEventListener("pointermove", e => {
+      const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width;
+      const i = Math.max(0, Math.min(SIZES.length - 1, Math.round((px - left) / ((W - left - right) / (SIZES.length - 1)))));
+      cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.setAttribute("opacity", 1);
+      const rows = series.map(([k, name]) => [name, gf(k, SIZES[i]), col(k)]).filter(r => r[1]).sort((a, b) => b[1] - a[1]);
+      showTip(`<b>N = ${nf(SIZES[i])}</b>` + rows.map(([n, v, c]) => `<div class="row"><span>${sw(c)}${n}</span><span>${nf(v)}</span></div>`).join(""), e);
+    });
+    hit.addEventListener("pointerleave", () => { cross.setAttribute("opacity", 0); hideTip(); });
+  }
+
+  // ---------- Decode (bars + whiskers + ceiling) ----------
+  const DEC = [["hip_fused", "hip-gpt2, fused attention", "llm_fused"], ["hip_naive", "hip-gpt2, naive attention", "llm_naive"],
+               ["hip_nocache", "hip-gpt2, no KV-cache", null], ["pytorch", "PyTorch eager (HF)", null]];
+  function drawDecode() {
+    const host = document.getElementById("c-decode"); host.innerHTML = "";
+    const W = host.clientWidth, narrow = W < 520;
+    const labelW = narrow ? 104 : 190, right = 56, rowH = 40, barH = 20, top = 22, axisH = 22;
+    const H = top + DEC.length * rowH + axisH;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": "GPT-2 decode tokens per second" }, host);
+    const c = ceil(), xmax = Math.ceil(c / 100) * 100, plotW = W - labelW - right, X = v => labelW + v / xmax * plotW;
+    niceTicks(xmax, narrow ? 3 : 6).forEach(t => {
+      el("line", { x1: X(t), x2: X(t), y1: top, y2: H - axisH, class: "gridl" }, svg);
+      el("text", { x: X(t), y: H - 6, "text-anchor": "middle", class: "mut" }, svg, nf(t));
+    });
+    DEC.forEach(([k, name, nz], i) => {
+      const v = L(k, "decode_tok_per_s"); if (v == null) return;
+      const y = top + i * rowH, color = k === "pytorch" ? "var(--s-ref)" : "var(--s-hip)";
+      el("text", { x: labelW - 10, y: y + rowH / 2 + 4, "text-anchor": "end" }, svg, narrow ? name.replace("hip-gpt2, ", "").replace(" attention", "") : name);
+      el("path", { d: hbarPath(X(0), y + (rowH - barH) / 2, X(v) - X(0), barH), fill: color }, svg);
+      let runs = nz && D.noise[nz + "_decode_tok_per_s_runs"], endX = X(v);
+      if (runs) {
+        const a = X(Math.min(...runs)), b = X(Math.max(...runs)), cy = y + rowH / 2;
+        el("line", { x1: a, x2: b, y1: cy, y2: cy, stroke: "var(--ink)", "stroke-width": 1.5 }, svg);
+        [a, b].forEach(xx => el("line", { x1: xx, x2: xx, y1: cy - 5, y2: cy + 5, stroke: "var(--ink)", "stroke-width": 1.5 }, svg));
+        endX = Math.max(endX, b);
+      }
+      el("text", { x: endX + 8, y: y + rowH / 2 + 4, class: "val" }, svg, nf(v));
+      const hit = el("rect", { x: 0, y, width: W, height: rowH, fill: "transparent" }, svg);
+      const html = `<b>${name}</b><br>${nf(v, 1)} tokens/s · TTFT ${nf(L(k, "ttft_ms"), 1)} ms` +
+        `<br><span class="m">${nf(100 * v / c)}% of the bandwidth ceiling</span>` +
+        (runs ? `<br><span class="m">3 runs: ${runs.map(r => nf(r)).join(", ")}</span>` : "");
+      hit.addEventListener("pointermove", e => showTip(html, e)); hit.addEventListener("pointerleave", hideTip);
+    });
+    el("line", { x1: X(0), x2: X(0), y1: top, y2: H - axisH, stroke: "var(--muted)", "stroke-width": 1 }, svg);
+    el("line", { x1: X(c), x2: X(c), y1: top - 4, y2: H - axisH, stroke: "var(--ink2)", "stroke-width": 1.5 }, svg);
+    el("text", { x: X(c), y: top - 10, "text-anchor": "end", class: "mut" }, svg, `bandwidth ceiling ~${nf(c)}`);
+  }
+
+  // ---------- Tables ----------
+  function tables() {
+    const tbl = (head, rows) => `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>` +
+      rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("") + "</tbody></table>";
+    document.getElementById("t-ladder").innerHTML = tbl(["Kernel (FP32)", ...SIZES.map(nf)], FP32.map(([k, n]) => [n, ...SIZES.map(s => nf(gf(k, s)))]));
+    document.getElementById("t-sizes").innerHTML = tbl(["Kernel (FP16 inputs)", ...SIZES.map(nf)], FP16.map(([k, n]) => [n, ...SIZES.map(s => nf(gf(k, s)))]));
+    document.getElementById("t-decode").innerHTML = tbl(["Engine", "Decode tokens/s", "TTFT ms", "Prefill ms"],
+      DEC.map(([k, n]) => [n, nf(L(k, "decode_tok_per_s"), 1), nf(L(k, "ttft_ms"), 2), nf(L(k, "prefill_ms"), 2)]));
+    document.querySelectorAll("[data-table]").forEach(b => b.addEventListener("click", () => {
+      const t = document.getElementById("t-" + b.dataset.table); t.hidden = !t.hidden; b.textContent = t.hidden ? "Show table" : "Hide table";
+    }));
+  }
+
+  function seg(id, opts, key, redraw) {
+    const g = document.getElementById(id);
+    g.innerHTML = opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${state[key] == v}">${l}</button>`).join("");
+    g.addEventListener("click", e => {
+      const b = e.target.closest("button"); if (!b) return;
+      state[key] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v;
+      g.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+      redraw();
+    });
+  }
+
+  const drawAll = () => { drawLadder(); drawSizes(); drawDecode(); };
+  fetch("data/results.json").then(r => r.json()).then(j => {
+    const names = Object.keys(j.devices);
+    const name = names.find(n => n.includes("4060")) || names[0];
+    D = j.devices[name];
+    bind(); tables();
+    seg("ladder-size", [1024, 2048, 4096, 8192].map(n => [n, nf(n)]), "size", drawLadder);
+    seg("sizes-dtype", [["fp32", "FP32"], ["fp16", "FP16"]], "dtype", drawSizes);
+    drawAll();
+    let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(drawAll, 120); });
+  }).catch(() => { document.getElementById("err").hidden = false; });
+})();
+</script>
+</body>
+</html>
