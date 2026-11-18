@@ -23,6 +23,8 @@ concurrency:
 
 jobs:
   bench:
+    # Skipped until the self-hosted runner is set up: set the HIP_CMAKE_FLAGS variable to enable.
+    if: ${{ vars.HIP_CMAKE_FLAGS != '' }}
     runs-on: [self-hosted, gpu]
     env:
       HIP_CMAKE_FLAGS: ${{ vars.HIP_CMAKE_FLAGS }}
